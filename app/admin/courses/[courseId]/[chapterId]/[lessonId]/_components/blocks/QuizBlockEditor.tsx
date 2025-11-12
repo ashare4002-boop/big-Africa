@@ -46,8 +46,8 @@ export function QuizBlockEditor({ data, onChange }: QuizBlockEditorProps) {
   };
 
   return (
-    <div className="space-y-4">
-      <div>
+    <div className="space-y-8">
+      <div className="space-y-2">
         <Label>Question</Label>
         <Textarea
           placeholder="Enter your question"
@@ -56,7 +56,7 @@ export function QuizBlockEditor({ data, onChange }: QuizBlockEditorProps) {
         />
       </div>
 
-      <div>
+      <div className="space-y-2">
         <Label>Question Type</Label>
         <Select
           value={quizData.type}
@@ -74,11 +74,12 @@ export function QuizBlockEditor({ data, onChange }: QuizBlockEditorProps) {
       </div>
 
       {quizData.type === "multiple-choice" && (
-        <div>
+        <div className="space-y-3">
           <Label>Options</Label>
-          <div className="space-y-2 mt-2">
+
+          <div className="space-y-3 mt-2">
             {(quizData.options || []).map((option, index) => (
-              <div key={index} className="flex gap-2">
+              <div key={index} className="flex gap-3">
                 <Input
                   placeholder={`Option ${index + 1}`}
                   value={option}
@@ -94,13 +95,15 @@ export function QuizBlockEditor({ data, onChange }: QuizBlockEditorProps) {
                 </Button>
               </div>
             ))}
+
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={addOption}
+              className="flex items-center gap-2"
             >
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4" />
               Add Option
             </Button>
           </div>
@@ -108,7 +111,7 @@ export function QuizBlockEditor({ data, onChange }: QuizBlockEditorProps) {
       )}
 
       {quizData.type === "true-false" && (
-        <div>
+        <div className="space-y-2">
           <Label>Correct Answer</Label>
           <Select
             value={String(quizData.correctAnswer)}
@@ -126,7 +129,7 @@ export function QuizBlockEditor({ data, onChange }: QuizBlockEditorProps) {
       )}
 
       {quizData.type === "multiple-choice" && (
-        <div>
+        <div className="space-y-2">
           <Label>Correct Answer (option number)</Label>
           <Input
             type="number"
@@ -140,7 +143,7 @@ export function QuizBlockEditor({ data, onChange }: QuizBlockEditorProps) {
       )}
 
       {quizData.type === "short-answer" && (
-        <div>
+        <div className="space-y-2">
           <Label>Correct Answer</Label>
           <Input
             placeholder="Enter the correct answer"
@@ -150,7 +153,7 @@ export function QuizBlockEditor({ data, onChange }: QuizBlockEditorProps) {
         </div>
       )}
 
-      <div>
+      <div className="space-y-2">
         <Label>Explanation (optional)</Label>
         <Textarea
           placeholder="Explain the correct answer"

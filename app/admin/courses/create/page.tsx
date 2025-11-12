@@ -45,10 +45,12 @@ import { CreateCourse } from "./action";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { toastWithSound } from "@/utils/toastWithSound";
+import { useConfetti } from "@/hooks/use-confetti";
 
 export default function CourseCreationPage() {
   const [pending, startTransition] = useTransition();
-  const router  = useRouter()
+  const router  = useRouter();
+  const {triggerConfetti} = useConfetti();
   // 1. Define your form.
   const form = useForm<CourseSchemaType>({
       resolver: zodResolver(courseSchema) as unknown as Resolver<CourseSchemaType>,
@@ -79,6 +81,7 @@ export default function CourseCreationPage() {
       
       if(result.status === "success") {
         toast.success(result.message);
+        triggerConfetti();
         form.reset()
         router.push('/admin/courses') 
 
@@ -194,7 +197,7 @@ export default function CourseCreationPage() {
                   <FormItem className="w-full">
                     <FormLabel className="text-left">Thumbnail image</FormLabel>
                     <FormControl>
-                      <Uploader onChange={field.onChange} value={field.value}/>
+                      <Uploader   fileTypeAccepted="image"  onChange={field.onChange} value={field.value}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

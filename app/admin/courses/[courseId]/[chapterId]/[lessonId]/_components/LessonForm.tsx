@@ -3,7 +3,7 @@
 import { AdminLessonType } from "@/app/data/admin/admin-get-lesson";
 import { Uploader } from "@/components/file-uploader/Uploader";
 import { RichTextEditor } from "@/components/rich-text-editor/Editor";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -26,6 +26,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
+import { useTransition } from "react";
+import { toastWithSound } from "@/utils/toastWithSound";
+import { tryCatch } from "@/hooks/try-catch";
+import { updateLesson } from "../action";
 
 interface iAppProps {
   data: AdminLessonType;
@@ -33,7 +37,14 @@ interface iAppProps {
   courseId: string;
 }
 
+/**
+ * check if lesson-block if is well updated...
+ *
+ *
+ */
+
 export function LessonForm({ chapterId, data, courseId }: iAppProps) {
+  const [pending, startTransition] = useTransition();
   // 1. Define your form.
   const form = useForm<LessonSchemaType>({
     // <---- lesson content to be added if text-  editor does not match your idea.
@@ -47,6 +58,28 @@ export function LessonForm({ chapterId, data, courseId }: iAppProps) {
       thumbnailKey: data.thumbnailKey ?? undefined,
     },
   });
+
+  async function onSubmit(values: LessonSchemaType) {
+    startTransition(async () => {
+      const { data: result, error } = await tryCatch(
+        updateLesson(values, data.id)
+      );
+
+      if (error) {
+        toastWithSound(
+          "error",
+          "An unexpected error occurred. Please try again"
+        );
+        return;
+      }
+
+      if (result.status === "success") {
+        toastWithSound(result.sound || "success", result.message);
+      } else if (result.status === "error") {
+        toastWithSound(result.sound || "error", result.message);
+      }
+    });
+  }
 
   return (
     <div>
@@ -67,7 +100,7 @@ export function LessonForm({ chapterId, data, courseId }: iAppProps) {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
                 name="name"
@@ -81,15 +114,15 @@ export function LessonForm({ chapterId, data, courseId }: iAppProps) {
                   </FormItem>
                 )}
               />
-                
-               <FormField
+
+              <FormField
                 control={form.control}
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel> 
+                    <FormLabel>Description</FormLabel>
                     <FormControl>
-                       <RichTextEditor field={field}/>
+                      <RichTextEditor field={field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -101,28 +134,56 @@ export function LessonForm({ chapterId, data, courseId }: iAppProps) {
                 name="thumbnailKey"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Thumbnail Image</FormLabel> 
+                    <FormLabel>Thumbnail Image</FormLabel>
                     <FormControl>
-                      <Uploader onChange={field.onChange} value={field.value}/>
+                      <Uploader
+                        onChange={field.onChange}
+                        value={field.value}
+                        fileTypeAccepted="image"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </form> 
-          </Form>
-        </CardContent>
-      </Card>
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Lesson Content Blocks</CardTitle>
-          <CardDescription>
-            Create modular lesson content with text, images, videos, quizzes, and files.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <BlockEditor lessonId={data.id} initialBlocks={data.blocks as any} />
+              <FormField
+                control={form.control}
+                name="videoKey"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Video File</FormLabel>
+                    <FormControl>
+                      <Uploader
+                        onChange={field.onChange}
+                        value={field.value}
+                        fileTypeAccepted="video"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle>Lesson Content Blocks</CardTitle>
+                  <CardDescription>
+                    Create modular lesson content with text, images, videos,
+                    quizzes, and files.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <BlockEditor
+                    lessonId={data.id}
+                    initialBlocks={data.blocks as any}
+                  />
+                </CardContent>
+              </Card>
+
+              <Button   disabled= {pending} type="submit">{pending ? "Saving..." : "Save lesson"}</Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>

@@ -21,15 +21,16 @@ export function VideoBlockEditor({ data, onChange }: VideoBlockEditorProps) {
   };
 
   return (
-    <div className="space-y-4">
-      <div>
+    <div className="space-y-6">
+      <div className="space-y-6">
         <Label>Video File</Label>
         <Uploader
+          fileTypeAccepted ="video"
           value={videoData.fileKey}
           onChange={(value) => handleChange("fileKey", value || "")}
         />
       </div>
-      <div>
+      <div className= "space-y-6">
         <Label>Caption (optional)</Label>
         <Input
           placeholder="Add a caption"

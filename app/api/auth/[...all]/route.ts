@@ -50,7 +50,7 @@ async function protect(req: NextRequest): Promise<ArcjetDecision> {
   const session = await auth.api.getSession({
     headers: req.headers,
   });
-
+  
   // If the user is logged in we'll use their ID as the identifier. This
   // allows limits to be applied across all devices and sessions (you could
   // also use the session ID). Otherwise, fall back to the IP address.
@@ -85,7 +85,7 @@ async function protect(req: NextRequest): Promise<ArcjetDecision> {
     // For all other auth requests
     return arcjet.withRule(detectBot(botOptions)).protect(req, { fingerprint: userId });
   }
-}
+} 
 
 const authHandlers = toNextJsHandler(auth.handler);
 

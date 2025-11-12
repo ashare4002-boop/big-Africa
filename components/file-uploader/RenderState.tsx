@@ -7,8 +7,6 @@ interface RenderErrorStateProps {
   retryUpload: () => void;
 }
 
-
-
 export function RenderEmptyState({ isDragActive }: { isDragActive: boolean }) {
   return (
     <div className="text-center">
@@ -30,7 +28,6 @@ export function RenderEmptyState({ isDragActive }: { isDragActive: boolean }) {
   );
 }
 
-
 export function RenderErrorState({ retryUpload }: RenderErrorStateProps) {
   return (
     <div className="text-destructive text-center ">
@@ -46,39 +43,66 @@ export function RenderErrorState({ retryUpload }: RenderErrorStateProps) {
   );
 }
 
-
-
- export function RenderUploadedState({previewUrl, isDeleting, handleRemoveFile}: {previewUrl?: string;
-  isDeleting: boolean,
+export function RenderUploadedState({
+  previewUrl,
+  isDeleting,
+  handleRemoveFile,
+  fileType,
+}: {
+  previewUrl?: string;
+  isDeleting: boolean;
   handleRemoveFile: () => void;
+  fileType: "image" | "video" | "file";
+}) {
+  if (!previewUrl) return null;
+  return (
+    <div className="relative group w-full h-full flex items-center justify-center">
+      
+    {fileType === "video" ? (
+      <video src={previewUrl} controls  className="rounded-md w-full h-full"/>
+    ):
+    
+    <Image
+        src={previewUrl}
+        alt="Uploaded File"
+        fill
+        className="object-contain p-2"
+        unoptimized
+      />
+    
+    }
 
- }) {
-      if (!previewUrl) return null;
-      return (
-        <div className="relative w-full h-64">
-        <Image src = {previewUrl}  alt = "Uploaded File" fill className="object-contain p-2"  unoptimized />
-        <Button variant="destructive" size = "icon" className={cn(
-          'absolute top-4 right-4')}
-          onClick={handleRemoveFile}
-          disabled = {isDeleting}>
+      <Button
+        variant="destructive"
+        size="icon"
+        className={cn("absolute top-4 right-4")}
+        onClick={handleRemoveFile}
+        disabled={isDeleting}
+      >
+        {isDeleting ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <XIcon className="size-4" />
+        )}
+      </Button>
+    </div>
+  );
+}
 
-         {isDeleting ? (
-          <Loader2 className="size-4 animate-spin"/>
-         ): (
-            <XIcon className="size-4" />
-         )}
-        </Button>
-        </div>
-      )
- }
-
-
-  export function RenderUploadingState({progress, file} : {progress: number;  file: File}) {
-            return (
-              <div className="text-center flex justify-center flex-col">
-                <p>{progress}</p>
-             <p className="mt-2 text-sm font-medium text-foreground">Uploading...</p>
-             <p className="mt-1 text-xs text-muted-foreground truncate max-w-xs">{file.name}</p>
-              </div>
-            )
-  }
+export function RenderUploadingState({
+  progress,
+  file,
+}: {
+  progress: number;
+  file: File;
+}) {
+  return (
+    <div className="text-center flex justify-center flex-col">
+      <p>{progress}</p>
+      <p className="mt-2 text-sm font-medium text-foreground">Uploading...</p>
+      <p className="mt-1 text-xs text-muted-foreground truncate max-w-xs">
+        {file.name}
+      </p>
+    </div>
+  );
+}

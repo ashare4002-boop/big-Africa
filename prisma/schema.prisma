@@ -6,8 +6,14 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL") // Pour les migrations (port 5432)
+  directUrl = env("DIRECT_URL") 
 }
+
+/*
+  Added CourseType enum, Town and Infrastructure models.
+  Modified Course to include courseType and relation to Town.
+  Modified Enrollment to link optionally to Infrastructure and to support subscription/ejection fields.
+*/
 
 model User {
   id            String    @id
@@ -20,6 +26,7 @@ model User {
   sessions      Session[]
   accounts      Account[]
   courses       Course[]
+  enrollment    Enrollment[]
 
   banned     Boolean?  @default(false)
   banReason  String?
@@ -62,7 +69,7 @@ model Account {
   scope                 String?
   password              String?
   createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  updatedAt             DateTime @updatedAt
 
   @@map("account")
 }
@@ -76,29 +83,6 @@ model Verification {
   updatedAt  DateTime @default(now()) @updatedAt
 
   @@map("verification")
-}
-
-model Course {
-  id          String      @id @default(uuid())
-  title       String
-  description String
-  filekey     String
-  price       Int // <---- Think making this optional and use the .optional() in the schema definition of prisma
-  duration    Int
-  level       CourseLevel
- 
-  category         String
-  smallDescription String
-  slug             String @unique
-
-  status CourseStatus @default(Draft)
-
-  createdAt DateTime @default(now())
-  updateAt  DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-
-  chapters Chapter[]
 }
 
 enum CourseLevel {
@@ -118,6 +102,44 @@ enum CourseStatus {
   Archived
 }
 
+/*
+ New enum for course types
+*/
+enum CourseType {
+  NORMAL
+  INFRASTRUCTURE_BASE
+}
+
+model Course {
+  id          String      @id @default(uuid())
+  title       String
+  description String
+  filekey     String
+  price       Int // <---- Think making this optional and use the .optional() in the schema definition of prisma
+  duration    Int
+  level       CourseLevel
+ 
+  category         String
+  smallDescription String
+  slug             String @unique
+
+  status CourseStatus @default(Draft)
+
+  // new courseType field: NORMAL or INFRASTRUCTURE_BASE
+  courseType CourseType @default(NORMAL)
+
+  createdAt DateTime @default(now())
+  updateAt  DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  chapters Chapter[]
+  enrollment Enrollment []
+
+  // towns associated with this course (for infrastructure base courses)
+  towns Town[]
+}
+
 model Chapter {
   id String @id @default(uuid())
 
@@ -126,12 +148,12 @@ model Chapter {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  Course    Course   @relation(fields: [courseId], references: [id])
+  Course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId  String
 
   lesson Lesson[]
 }
-
+  
 model Lesson {
   id String @id @default(uuid())
 
@@ -150,6 +172,101 @@ model Lesson {
   blocks LessonBlock[]
 
   @@index([chapterId])
+}
+
+/*
+ Town model: a Course can have many Towns
+*/
+model Town {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // relation to course
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId String
+
+  // infrastructures in this town
+  infrastructures Infrastructure[]
+}
+
+/*
+ Infrastructure model: physical locations
+ - tutorNames: stored as String[] (Postgres text[])
+ - images: stored as String[] (1..3 expected, not enforced at DB layer)
+ - openTime/closeTime: DateTime (can store times or datetimes; adjust as needed)
+*/
+model Infrastructure {
+  id                String   @id @default(uuid())
+  name              String
+  capacity          Int
+  currentEnrollment Int      @default(0)
+  location          String
+  publicContact     String
+  privateContact    String
+  openTime          DateTime?
+  closeTime         DateTime?
+  tutorNames        String[]  // list of tutor names
+  images            String[]  // 1..3 image keys/urls (enforce at app level)
+  enrollmentDeadline DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  town        Town   @relation(fields: [townId], references: [id], onDelete: Cascade)
+  townId      String
+
+  // optional enrollments referencing this infrastructure
+  enrollment Enrollment[]
+}
+
+/*
+ Enrollment model updates:
+ - optional relation to Infrastructure
+ - subscription/ejection fields: lastPaidDate, isEjected, ejectionCount
+*/
+model Enrollment {
+  id String @id  @default(uuid())
+
+  amount  Int
+  status EnrollmentStatus @default(Pending)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId String
+  User User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@unique([userId, courseId])
+
+  // payment fields
+  transactionId String? @unique
+  provider      String? 
+  rawResponse   Json?   
+  paidAt        DateTime?
+
+  // infrastructure-specific fields
+  infrastructure Infrastructure? @relation(fields: [infrastructureId], references: [id], onDelete: SetNull)
+  infrastructureId String?
+
+  // subscription/ejection logic
+  lastPaidDate DateTime?
+  isEjected    Boolean  @default(false)
+  ejectionCount Int     @default(0)
+
+
+}
+
+/*
+ Enrollment status enum already existed; kept for compatibility
+*/
+enum EnrollmentStatus {
+ Pending
+ Active
+ Cancelled
+ Paid
 }
 
 model LessonBlock {
@@ -173,4 +290,3 @@ enum LessonBlockType {
   QUIZ
   FILE
 }
- 

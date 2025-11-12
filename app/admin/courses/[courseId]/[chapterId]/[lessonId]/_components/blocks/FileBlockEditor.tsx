@@ -21,15 +21,17 @@ export function FileBlockEditor({ data, onChange }: FileBlockEditorProps) {
   };
 
   return (
-    <div className="space-y-4">
-      <div>
+    <div className="space-y-6">
+      <div className="space-y-6">
         <Label>File</Label>
         <Uploader
+         fileTypeAccepted="file"
           value={fileData.fileKey}
           onChange={(value) => handleChange("fileKey", value || "")}
         />
       </div>
-      <div>
+
+      <div className="space-y-6">
         <Label>File Name</Label>
         <Input
           placeholder="e.g., lecture-notes.pdf"
@@ -37,7 +39,8 @@ export function FileBlockEditor({ data, onChange }: FileBlockEditorProps) {
           onChange={(e) => handleChange("fileName", e.target.value)}
         />
       </div>
-      <div>
+
+      <div className="space-y-6">
         <Label>File Type</Label>
         <Input
           placeholder="e.g., PDF, DOCX, MP3"

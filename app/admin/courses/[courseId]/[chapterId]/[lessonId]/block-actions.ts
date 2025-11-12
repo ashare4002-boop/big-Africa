@@ -2,7 +2,6 @@
 
 import { prisma as db } from "@/lib/db";
 import {
-  BlockType,
   lessonBlockSchema,
   LessonBlockSchema,
 } from "@/lib/blockTypes";
@@ -13,9 +12,9 @@ export async function addLessonBlock(
   lessonId: string,
   blockData: Omit<LessonBlockSchema, "id">
 ) {
-  try {
-    await requireAdmin();
+  await requireAdmin();
 
+  try {
     const validated = lessonBlockSchema.parse({
       ...blockData,
       id: undefined,

@@ -22,14 +22,15 @@ export function ImageBlockEditor({ data, onChange }: ImageBlockEditorProps) {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="grid gap-2">
         <Label>Image</Label>
         <Uploader
+          fileTypeAccepted="image"
           value={imageData.fileKey}
           onChange={(value) => handleChange("fileKey", value || "")}
         />
       </div>
-      <div>
+      <div className="grid gap-2">
         <Label>Alt Text</Label>
         <Input
           placeholder="Describe the image"
@@ -37,7 +38,7 @@ export function ImageBlockEditor({ data, onChange }: ImageBlockEditorProps) {
           onChange={(e) => handleChange("alt", e.target.value)}
         />
       </div>
-      <div >
+      <div className="grid gap-2">
         <Label>Caption (optional)</Label>
         <Input
           placeholder="Add a caption"
