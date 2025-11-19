@@ -28,6 +28,8 @@ model User {
   courses       Course[]
   enrollment    Enrollment[]
 
+  nkwaCustomerId String? @unique
+
   banned     Boolean?  @default(false)
   banReason  String?
   banExpires DateTime?

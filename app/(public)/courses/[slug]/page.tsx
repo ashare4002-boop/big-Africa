@@ -21,11 +21,16 @@ import {
 import { CheckIcon } from "lucide-react";
 import Image from "next/image";
 
+import { checkIfCourseBought } from "@/app/data/user/user-is-enroll";
+import Link from "next/link";
+import { EnrollmentButton } from "./_components/EnrollmentButton";
+
 type Params = Promise<{ slug: string }>;
 
 export default async function SlugPage({ params }: { params: Params }) {
   const { slug } = await params;
   const course = await getIndividualCourse(slug);
+  const isEnrolled = await checkIfCourseBought(course.id);
   const totalLessons =
     course.chapters.reduce(
       (total, chapter) => total + chapter.lesson.length,
@@ -217,7 +222,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                         {course.category}
                       </p>
                     </div>
-                  </div>
+                  </div> 
 
                   <div className="flex items-center gap-3">
                     <div className="flex size-8 items-center justify-center rounded-full bg:primary/30 text-primary ">
@@ -247,9 +252,13 @@ export default async function SlugPage({ params }: { params: Params }) {
                   ))}
                 </ul>
               </div>
-        
+
               <div>
-                <Button className="w-full">Sign in to enroll</Button>
+                {isEnrolled ? (
+                  <Link href="/dashboard">Start now</Link>
+                ) : (
+                  <EnrollmentButton courseId={course.id} />
+                )}
               </div>
             </CardContent>
           </Card>

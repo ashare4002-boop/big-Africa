@@ -41,6 +41,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.65.0(react@19.1.0))
+      '@nkwa-pay/sdk':
+        specifier: ^0.2.2
+        version: 0.2.2
       '@prisma/client':
         specifier: ^6.18.0
         version: 6.18.0(prisma@6.18.0(typescript@5.9.3))(typescript@5.9.3)
@@ -835,6 +838,15 @@ packages:
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
+
+  '@nkwa-pay/sdk@0.2.2':
+    resolution: {integrity: sha512-qeI2jFJqQ3hgr7RgMMkckyCqjwTyMUabI9ZnT7OE9a/3M5lDsJOlBtynFBvgSIJrUM6EKpy7Jy+q1B+aGwZeeg==}
+    hasBin: true
+    peerDependencies:
+      '@modelcontextprotocol/sdk': '>=1.5.0 <1.10.0'
+    peerDependenciesMeta:
+      '@modelcontextprotocol/sdk':
+        optional: true
 
   '@noble/ciphers@2.0.1':
     resolution: {integrity: sha512-xHK3XHPUW8DTAobU+G0XT+/w+JLM7/8k1UFdB5xg/zTFPnFCobhftzw8wl4Lw2aq/Rvir5pxfZV5fEazmeCJ2g==}
@@ -3995,6 +4007,9 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
   zod@4.1.12:
     resolution: {integrity: sha512-JInaHOamG8pt5+Ey8kGmdcAcg3OL9reK8ltczgHTAwNhMys/6ThXHityHxVV2p3fkw/c+MAvBHFVYHFZDmjMCQ==}
 
@@ -4863,6 +4878,10 @@ snapshots:
 
   '@next/swc-win32-x64-msvc@15.5.6':
     optional: true
+
+  '@nkwa-pay/sdk@0.2.2':
+    dependencies:
+      zod: 3.25.76
 
   '@noble/ciphers@2.0.1': {}
 
@@ -8395,5 +8414,7 @@ snapshots:
   word-wrap@1.2.5: {}
 
   yocto-queue@0.1.0: {}
+
+  zod@3.25.76: {}
 
   zod@4.1.12: {}
