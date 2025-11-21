@@ -1,7 +1,7 @@
 import { getIndividualCourse } from "@/app/data/course/get-course";
 import { RenderDescription } from "@/components/rich-text-editor/RenderDescription";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Collapsible,
@@ -255,7 +255,7 @@ export default async function SlugPage({ params }: { params: Params }) {
 
               <div>
                 {isEnrolled ? (
-                  <Link href="/dashboard">Start now</Link>
+                  <Link className= {buttonVariants({ className :  "w-full" })} href="/dashboard">Start now</Link>
                 ) : (
                   <EnrollmentButton courseId={course.id} />
                 )}

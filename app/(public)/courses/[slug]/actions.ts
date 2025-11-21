@@ -1,4 +1,4 @@
-"user server";
+"use server";
 
 import { requireUser } from "@/app/data/user/verify-user-session";
 import arcjet, { fixedWindow } from "@/lib/arcjet";
@@ -6,24 +6,23 @@ import { prisma } from "@/lib/db";
 import { nkwa } from "@/lib/nkwa";
 import { ApiResponse } from "@/lib/type";
 
-
-const aj = arcjet.withRule( // Need to use it for protection
-    fixedWindow({
-        mode: "LIVE",
-        window: "1m",
-        max: 5
-    })
-)
+const aj = arcjet.withRule(
+  fixedWindow({
+    mode: "LIVE",
+    window: "1m",
+    max: 5,
+  })
+);
 
 export async function enrollInCourseAction(
-  courseId: string
-): Promise<ApiResponse> {
+  courseId: string,
+  phoneNumber: string
+): Promise<ApiResponse<{ paymentId: string }>> {
   const user = await requireUser();
+
   try {
     const course = await prisma.course.findUnique({
-      where: {
-        id: courseId,
-      },
+      where: { id: courseId },
       select: {
         id: true,
         title: true,
@@ -39,84 +38,94 @@ export async function enrollInCourseAction(
         sound: "error",
       };
     }
-    let nkwaCustomerId: string;
-    const userWithNkwaCustomerId = await prisma.user.findUnique({
-      /**Need to verify if nkwa has user customer id */
-      where: {
-        id: user.id,
-      },
 
+    if (course.price <= 0) {
+      return {
+        status: "error",
+        message: "This course is not available for enrollment",
+        sound: "error",
+      };
+    }
+
+    const phoneRegex = /^237[6-7]\d{8}$/;
+    if (!phoneRegex.test(phoneNumber)) {
+      return {
+        status: "error",
+        message: "Invalid phone number. Format: 237XXXXXXXXX (Cameroon)",
+        sound: "error",
+      };
+    }
+
+    const existingEnrollment = await prisma.enrollment.findUnique({
+      where: {
+        userId_courseId: {
+          userId: user.id,
+          courseId: courseId,
+        },
+      },
       select: {
-        nkwaCustomerId: true,
+        status: true,
+        id: true,
       },
     });
 
-    if (userWithNkwaCustomerId?.nkwaCustomerId) {
-      nkwaCustomerId = userWithNkwaCustomerId.nkwaCustomerId;
-    } else {
-      // ...needs first to check if it takes customers
+    if (existingEnrollment?.status === "Active") {
+      return {
+        status: "error",
+        message: "You are already enrolled in this course",
+        sound: "info",
+      };
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      const existingEnrollment = await tx.enrollment.findUnique({
-        where: {
-          userId_courseId: {
-            userId: user.id,
-            courseId: courseId,
-          },
-        },
-        select: {
-          status: true,
-          id: true,
+    let enrollment;
+    if (existingEnrollment) {
+      enrollment = await prisma.enrollment.update({
+        where: { id: existingEnrollment.id },
+        data: {
+          amount: course.price,
+          status: "Pending",
+          provider: "nkwa",
+          updatedAt: new Date(),
         },
       });
+    } else {
+      enrollment = await prisma.enrollment.create({
+        data: {
+          userId: user.id,
+          courseId: course.id,
+          amount: course.price,
+          status: "Pending",
+          provider: "nkwa",
+        },
+      });
+    }
 
-      if (existingEnrollment?.status === "Active") {
-        return {
-          status: "success",
-          message: "You are already enroll in this course",
-          sound: "success",
-        };
-      }
+    const payment = await nkwa.payments.collect({
+      amount: course.price,
+      phoneNumber: phoneNumber,
+    });
 
-      let enrollment;
-
-      if (existingEnrollment) {
-        enrollment = await tx.enrollment.update({
-          where: {
-            id: existingEnrollment.id,
-          },
-
-          data: {
-            amount: course.price,
-            status: "Pending",
-            updatedAt: new Date(),
-          },
-        });
-      } else {
-        enrollment = await tx.enrollment.create({
-          data: {
-            userId: user.id,
-            courseId: course.id,
-            amount: course.price,
-            status: "Pending",
-          },
-        });
-      }
-
-
-      //Does nkwa takes check out session? Please need to add nkwa integration
+    await prisma.enrollment.update({
+      where: { id: enrollment.id },
+      data: {
+        transactionId: payment.id,
+        rawResponse: payment as any,
+      },
     });
 
     return {
       status: "success",
-      message: "Nkwa",
+      message: `Payment request sent! Please check your phone (${phoneNumber}) and enter your PIN to complete the payment.`,
       sound: "success",
+      data: {
+        paymentId: payment.id || "",
+      },
     };
-  } catch {
+  } catch (error: any) {
+    console.error("Enrollment error:", error);
     return {
       status: "error",
-      message: "Failed to enroll in course",
+      message: error?.message || "Failed to process enrollment. Please try again.",
       sound: "error",
     };
   }
