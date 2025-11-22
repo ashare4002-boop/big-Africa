@@ -1,5 +1,9 @@
+import "server-only"; 
+
+
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "./require-admin";
+
 
 export async function adminGetCourses() {
   await new Promise ((resolve) => setTimeout(resolve, 2000)); // <---| Comment this line out or remove it in production
