@@ -5,7 +5,7 @@ import { env } from "./env";
 import "server-only"; 
 
 // Initialize with your API key
- export const nkwa = new Pay({
+export const nkwa = new Pay({
   apiKeyAuth: env.NKWA_API_KEY,
-  
+  serverURL: env.NKWA_PAY_SERVER_URL || "https://api.pay.mynkwa.com",
 });

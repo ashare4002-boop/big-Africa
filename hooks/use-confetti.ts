@@ -1,6 +1,9 @@
 "use client";
 
 
+// Fix the size of the confetti.
+
+
 import confetti from "canvas-confetti";
 
 export const useConfetti = () => {

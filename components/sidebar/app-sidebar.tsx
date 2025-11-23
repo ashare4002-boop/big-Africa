@@ -41,16 +41,22 @@ const data = {
       icon: IconBook,
     },
 
-    {
-      title: "Carrier",
-      url: "/admin/carrier",
-      icon: IconBook,
-    },
+    // {
+    //   title: "Carrier",
+    //   url: "/admin/carrier",
+    //   icon: IconBook,
+    // },
+
+    // {
+    //   title: "Certification",
+    //   url: "/admin/certification",
+    //   icon: IconBook,
+    // },
 
     {
-      title: "Certification",
-      url: "/admin/certification",
-      icon: IconBook,
+      title: "Exams",
+      url: "/admin/exams",
+      icon: IconBook, // <---- icon need to be change
     },
 
     {
@@ -134,7 +140,7 @@ const data = {
     },
   ],
 
-  exams: [
+  exams: [ // remove this part.
     {
       title: "Concours",
       url: "/admin/concours",

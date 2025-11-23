@@ -16,15 +16,18 @@ export const env = createEnv({
      AWS_ENDPOINT_URL_IAM: z.string().min(1),
      AWS_REGION: z.string().min(1),
      NKWA_API_KEY: z.string().min(1),
-
+     NKWA_PUBLIC_KEY: z.string().min(1),
+     NKWA_PAY_SERVER_URL: z.string().url(),
     },
 
     client: {
      NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES: z.string().min(1),
+     NEXT_PUBLIC_BASE_URL: z.string().url(),
     },
 
     experimental__runtimeEnv: {
        NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES: process.env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES,
+       NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
     },
 
 })

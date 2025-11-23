@@ -1,0 +1,4 @@
+# check arrange env file for prod.
+# C:\Users\Ratibus\Documents\0x00\ashare-3\app\(public)\courses\[slug]\actions.ts ?
+# fix canvas confetti. The Confetti size
+# Clear code-base for prod.

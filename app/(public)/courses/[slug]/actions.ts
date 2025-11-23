@@ -6,13 +6,13 @@ import { prisma } from "@/lib/db";
 import { nkwa } from "@/lib/nkwa";
 import { ApiResponse } from "@/lib/type";
 
-const aj = arcjet.withRule(
-  fixedWindow({
-    mode: "LIVE",
-    window: "1m",
-    max: 5,
-  })
-);
+// const aj = arcjet.withRule(
+//   fixedWindow({ Time: -----> 6:48:54
+//     mode: "LIVE",
+//     window: "1m",
+//     max: 5,
+//   })
+// );
 
 export async function enrollInCourseAction(
   courseId: string,
@@ -21,6 +21,7 @@ export async function enrollInCourseAction(
   const user = await requireUser();
 
   try {
+    
     const course = await prisma.course.findUnique({
       where: { id: courseId },
       select: {
@@ -122,10 +123,30 @@ export async function enrollInCourseAction(
       },
     };
   } catch (error: any) {
+    // Improve error reporting for Nkwa SDK HttpError
     console.error("Enrollment error:", error);
+
+    // Try to extract useful info from HttpError body
+    let userMessage = "Failed to process enrollment. Please try again.";
+    try {
+      if (error?.body) {
+        // body may be a JSON string
+        const parsed = typeof error.body === "string" ? JSON.parse(error.body) : error.body;
+        if (parsed?.message) {
+          userMessage = `Payment provider error: ${parsed.message}`;
+        } else if (parsed?.error) {
+          userMessage = `Payment provider error: ${parsed.error}`;
+        }
+      } else if (error?.message) {
+        userMessage = error.message;
+      }
+    } catch (parseErr) {
+      console.error("Failed to parse provider error body:", parseErr);
+    }
+
     return {
       status: "error",
-      message: error?.message || "Failed to process enrollment. Please try again.",
+      message: userMessage,
       sound: "error",
     };
   }

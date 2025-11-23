@@ -10,14 +10,17 @@ export default async function AdminIndexPage() {
     <>
       <SectionCards />
 
-      <ChartAreaInteractive data={enrollmentData}/> 
+      <ChartAreaInteractive data={enrollmentData} />
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Recent Courses</h2>
-          <Link className= {buttonVariants({variant: "outline"})} href="/admin/courses">View All Courses</Link>
+          <Link
+            className={buttonVariants({ variant: "outline" })}
+            href="/admin/courses"
+          >
+            View All Courses
+          </Link>
         </div>
-        </div>
+      </div>
     </>
   );
 }
- 

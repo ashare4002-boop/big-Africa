@@ -52,8 +52,16 @@ export function EnrollmentButton({ courseId }: { courseId: string }) {
         toastWithSound(result.sound || "success", result.message);
         setOpen(false);
         setPhoneNumber("");
+        // Redirect to payment success page with paymentId
+        if (result.data?.paymentId) {
+          window.location.href = `/payments/success?paymentId=${result.data.paymentId}`;
+        }
       } else if (result.status === "error") {
         toastWithSound(result.sound || "error", result.message);
+        // Redirect to payment cancel page if payment failed
+        if (result.message?.toLowerCase().includes("fail") || result.message?.toLowerCase().includes("cancel")) {
+          window.location.href = `/payments/cancel`;
+        }
       }
     });
   }

@@ -95,7 +95,7 @@ export const courseSchema = z.object({
 
 export const chapterSchema = z.object({
   name: z.string().min(3, {message: "The name must be at lest 3 characters long"}),
-  courseId: z.string().uuid({message: "Invalid course id"}), // <---- why uuid is marked as deprecated?
+  courseId: z.string().uuid({message: "Invalid course id"}), // <---- why uuid is marked as deprecated? change  it before prod.
 });
 
 export const lessonSchema = z.object({

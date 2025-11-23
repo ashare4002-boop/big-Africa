@@ -22,7 +22,8 @@ async function authMiddleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth).*)"],
+  // Exclude internal assets, auth routes, and the Nkwa webhook from Arcjet
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth|api/webhook/nkwa).*)"],
 };
 
 export default createMiddleware(aj, async (request: NextRequest) => {

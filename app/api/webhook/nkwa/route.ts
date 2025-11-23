@@ -2,90 +2,96 @@ import { prisma } from "@/lib/db";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { createVerify } from "crypto";
+import { env } from "@/lib/env";
 
 export async function POST(req: Request) {
   try {
     const headersList = await headers();
-    const signature = headersList.get("X-Signature");
-    const timestamp = headersList.get("X-Timestamp");
+    
+    // 1. Get Headers (Case-insensitive handling)
+    const signature = headersList.get("x-sig") || headersList.get("x-signature");
+    const timestamp = headersList.get("x-timestamp") || headersList.get("date");
+
+    // Debug log to help trace what arrives
+    console.log(`🪝 Webhook received. Timestamp: ${timestamp}, Signature present: ${!!signature}`);
 
     if (!signature || !timestamp) {
-      console.error("Missing signature or timestamp headers");
+      console.error("Missing Nkwa Headers:", Object.fromEntries(headersList.entries()));
       return NextResponse.json(
-        { error: "Missing required headers" },
+        { error: "Missing required headers (x-sig or x-timestamp)" },
         { status: 400 }
       );
     }
 
+    // 2. Get Raw Body (Must be text for crypto verification)
     const body = await req.text();
-    const payment = JSON.parse(body);
 
-    const callbackUrl = new URL("/api/webhook/nkwa", req.url).toString();
+    // 3. Dynamic URL Construction
+    // This ensures the verification URL matches exactly what Nkwa sent (https vs http, ngrok vs localhost)
+    const host = headersList.get("host"); 
+    const protocol = headersList.get("x-forwarded-proto") || "https"; 
+    const callbackUrl = `${protocol}://${host}/api/webhook/nkwa`;
+
+    // 4. Reconstruct the Message: Timestamp + URL + Body
     const message = `${timestamp}${callbackUrl}${body}`;
 
-    const publicKey = process.env.NKWA_PUBLIC_KEY;
+    // 5. Verify Signature
+    let publicKey = env.NKWA_PUBLIC_KEY;
     if (publicKey) {
-      const isValid = verifyWebhookSignature(
-        publicKey,
-        message,
-        signature
-      );
+      // CRITICAL FIX: Handle .env newline formatting issues
+      publicKey = publicKey.replace(/\\n/g, "\n");
+      
+      const isValid = verifyWebhookSignature(publicKey, message, signature);
 
       if (!isValid) {
-        console.error("Invalid webhook signature");
-        return NextResponse.json(
-          { error: "Invalid signature" },
-          { status: 401 }
-        );
+        console.error("❌ Signature Verification Failed");
+        console.error("Computed Message:", message);
+        return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
       }
     }
 
-    console.log("Nkwa webhook received:", {
-      paymentId: payment.id,
-      status: payment.status,
-      amount: payment.amount,
-    });
+    // 6. Parse Body & Process Payment
+    const payment = JSON.parse(body);
 
     if (!payment.id) {
-      console.error("Payment ID missing from webhook");
-      return NextResponse.json(
-        { error: "Payment ID required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Payment ID required" }, { status: 400 });
     }
+
+    // Log the actual status received to help you debug
+    console.log(`📝 Payment update: ${payment.id} | Status: ${payment.status}`);
 
     const enrollment = await prisma.enrollment.findUnique({
       where: { transactionId: payment.id },
-      include: {
-        Course: { select: { title: true } },
-        User: { select: { email: true, name: true } },
-      },
     });
 
     if (!enrollment) {
-      console.error("Enrollment not found for payment:", payment.id);
-      return NextResponse.json(
-        { error: "Enrollment not found" },
-        { status: 404 }
-      );
+      console.warn(`⚠️ Enrollment not found for transaction: ${payment.id}`);
+      // Return 200 so Nkwa stops retrying; we can't process a missing enrollment
+      return NextResponse.json({ received: true }, { status: 200 });
     }
 
-    switch (payment.status) {
-      case "success":
+    // 7. Update Database (Idempotent & Multi-Status Support)
+    const statusUpper = payment.status?.toUpperCase();
+
+    // Only update if we are currently Pending to avoid overwriting completed states
+    if (enrollment.status === "Pending") {
+      
+      // FIX: Accept multiple variations of success
+      const successStatuses = ["SUCCESSFUL", "SUCCESS", "PAID", "COMPLETED"];
+      const failedStatuses = ["FAILED", "CANCELED", "CANCELLED", "DECLINED"];
+
+      if (successStatuses.includes(statusUpper)) {
         await prisma.enrollment.update({
           where: { id: enrollment.id },
           data: {
-            status: "Active",
+            status: "Active", // Matches your schema Enum
             paidAt: new Date(),
             rawResponse: payment,
           },
         });
-        console.log(
-          `Payment successful for enrollment ${enrollment.id}`
-        );
-        break;
-
-      case "failed":
+        console.log(`✅ Enrollment ${enrollment.id} activated!`);
+      } 
+      else if (failedStatuses.includes(statusUpper)) {
         await prisma.enrollment.update({
           where: { id: enrollment.id },
           data: {
@@ -93,46 +99,25 @@ export async function POST(req: Request) {
             rawResponse: payment,
           },
         });
-        console.log(`Payment failed for enrollment ${enrollment.id}`);
-        break;
-
-      case "canceled":
+        console.log(`❌ Enrollment ${enrollment.id} cancelled.`);
+      }
+      else {
+        // Use this to catch statuses like "PENDING" and just update the raw log
         await prisma.enrollment.update({
           where: { id: enrollment.id },
-          data: {
-            status: "Cancelled",
-            rawResponse: payment,
-          },
+          data: { rawResponse: payment }
         });
-        console.log(
-          `Payment cancelled for enrollment ${enrollment.id}`
-        );
-        break;
-
-      case "pending":
-        await prisma.enrollment.update({
-          where: { id: enrollment.id },
-          data: {
-            rawResponse: payment,
-          },
-        });
-        console.log(
-          `Payment still pending for enrollment ${enrollment.id}`
-        );
-        break;
-
-      default:
-        console.warn("Unknown payment status:", payment.status);
-        return NextResponse.json({ received: true });
+        console.log(`ℹ️ Status is '${statusUpper}' (not final). Enrollment remains Pending.`);
+      }
+    } else {
+      console.log(`ℹ️ Enrollment ${enrollment.id} is already ${enrollment.status}. Ignoring update.`);
     }
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error) {
-    console.error("Webhook error:", error);
-    return NextResponse.json(
-      { error: "Webhook processing failed" },
-      { status: 500 }
-    );
+    console.error("Webhook Internal Error:", error);
+    // Return 500 so Nkwa retries if it was a server crash
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
@@ -142,16 +127,11 @@ function verifyWebhookSignature(
   signatureBase64: string
 ): boolean {
   try {
-    const signature = Buffer.from(signatureBase64, "base64");
-
     const verifier = createVerify("RSA-SHA256");
     verifier.update(message);
-    
-    const publicKeyFormatted = `-----BEGIN PUBLIC KEY-----\n${publicKey}\n-----END PUBLIC KEY-----`;
-    
-    return verifier.verify(publicKeyFormatted, signature);
+    return verifier.verify(publicKey, Buffer.from(signatureBase64, "base64"));
   } catch (error) {
-    console.error("Signature verification error:", error);
+    console.error("Crypto Error:", error);
     return false;
   }
 }
