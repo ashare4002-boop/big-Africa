@@ -5,7 +5,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  
 }
 
 
@@ -113,6 +112,12 @@ enum CourseType {
   INFRASTRUCTURE_BASE
 }
 
+enum DurationType {
+  DAYS
+  WEEKS
+  MONTHS
+}
+
 model Course {
   id          String      @id @default(uuid())
   title       String
@@ -208,11 +213,17 @@ model Infrastructure {
   location          String
   publicContact     String
   privateContact    String
+  ownerPhoneNumber  String   // MTN or Orange phone number for mobile money
   openTime          DateTime?
   closeTime         DateTime?
   tutorNames        String[]  // list of tutor names
-  images            String[]  // 1..3 image keys/urls (enforce at app level)
+  facilityImageKey  String   // image of the infrastructure building
+  locationImageKey  String   // image showing location on map
   enrollmentDeadline DateTime?
+  duration          Int      // course duration number
+  durationType      DurationType @default(MONTHS) // DAYS, WEEKS, or MONTHS
+  isLocked          Boolean  @default(false) // manually locked by admin
+  totalEarnings     Float    @default(0) // track earnings for this infrastructure
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -256,8 +267,10 @@ model Enrollment {
 
   // subscription/ejection logic
   lastPaidDate DateTime?
+  nextPaymentDue DateTime? // when the next monthly payment is due
   isEjected    Boolean  @default(false)
   ejectionCount Int     @default(0)
+  canReEnroll   Boolean  @default(false) // true if user was ejected and can reclaim their spot
 
 
 }

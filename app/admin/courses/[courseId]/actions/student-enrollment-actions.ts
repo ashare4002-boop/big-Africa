@@ -1,0 +1,236 @@
+"use server";
+
+import { prisma } from "@/lib/db";
+import { ApiResponse } from "@/lib/type";
+import arcjet, { fixedWindow } from "@/lib/arcjet";
+import { request } from "@arcjet/next";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { calculateNextPaymentDue, isInfrastructureLocked } from "@/lib/infrastructure-utils";
+import logger from "@/lib/logger";
+import { env } from "@/lib/env";
+
+const aj = arcjet.withRule(
+  fixedWindow({
+    mode: "LIVE",
+    window: "1m",
+    max: 10,
+  })
+);
+
+/**
+ * Student endpoint: Enroll in an infrastructure-based course
+ */
+export async function enrollInInfrastructureBaseCourse(
+  courseId: string,
+  infrastructureId: string,
+  townId: string
+): Promise<ApiResponse<{ enrollmentId: string }>> {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) {
+    return {
+      status: "error",
+      message: "You must be logged in to enroll",
+      sound: "error",
+    };
+  }
+
+  try {
+    const req = await request();
+    const decision = await aj.protect(req, {
+      fingerprint: session.user.id,
+    });
+
+    if (decision.isDenied()) {
+      return {
+        status: "error",
+        message: "Rate limit exceeded",
+        sound: "info",
+      };
+    }
+
+    // Verify course exists and is infrastructure-based
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+    });
+
+    if (!course) {
+      return {
+        status: "error",
+        message: "Course not found",
+        sound: "error",
+      };
+    }
+
+    if (course.courseType !== "INFRASTRUCTURE_BASE") {
+      return {
+        status: "error",
+        message: "This is not an infrastructure-based course",
+        sound: "error",
+      };
+    }
+
+    // Verify infrastructure exists and is not locked
+    const infrastructure = await prisma.infrastructure.findUnique({
+      where: { id: infrastructureId },
+    });
+
+    if (!infrastructure) {
+      return {
+        status: "error",
+        message: "Infrastructure not found",
+        sound: "error",
+      };
+    }
+
+    const isLocked = await (async () => {
+      if (infrastructure.isLocked === true) return true;
+      if (infrastructure.currentEnrollment >= infrastructure.capacity) return true;
+      if (infrastructure.enrollmentDeadline && new Date() > infrastructure.enrollmentDeadline) return true;
+      return false;
+    })();
+
+    if (isLocked) {
+      return {
+        status: "error",
+        message: "This infrastructure is no longer accepting enrollments",
+        sound: "error",
+      };
+    }
+
+    // Check if user already enrolled in this course
+    const existingEnrollment = await prisma.enrollment.findFirst({
+      where: {
+        userId: session.user.id,
+        courseId,
+      },
+    });
+
+    if (existingEnrollment) {
+      return {
+        status: "error",
+        message: "You are already enrolled in this course",
+        sound: "info",
+      };
+    }
+
+    // Create enrollment
+    const nextPaymentDue = calculateNextPaymentDue(new Date());
+
+    const enrollment = await prisma.enrollment.create({
+      data: {
+        userId: session.user.id,
+        courseId,
+        infrastructureId,
+        status: "Pending",
+        provider: "nkwa", // Default provider
+        amount: course.price,
+        nextPaymentDue,
+        isEjected: false,
+        ejectionCount: 0,
+      },
+    });
+
+    // Increment infrastructure enrollment count
+    await prisma.infrastructure.update({
+      where: { id: infrastructureId },
+      data: {
+        currentEnrollment: {
+          increment: 1,
+        },
+      },
+    });
+
+    // Send notifications
+    const { sendInfrastructureOwnerNotification, sendStudentEnrollmentConfirmation } = await import("@/lib/notifications");
+    
+    try {
+      await Promise.all([
+        sendInfrastructureOwnerNotification(infrastructure.publicContact, {
+          studentName: session.user.name || "Student",
+          studentEmail: session.user.email,
+          courseName: course.title,
+          infrastructureName: infrastructure.name,
+          town: "TBD",
+          monthlyFee: course.price,
+        }),
+        sendStudentEnrollmentConfirmation(session.user.email, {
+          studentName: session.user.name || "Student",
+          courseName: course.title,
+          infrastructureName: infrastructure.name,
+          town: "TBD",
+          monthlyFee: course.price,
+          paymentLink: `${env.NEXT_PUBLIC_BASE_URL}/enrollment/${enrollment.id}/pay`,
+        }),
+      ]);
+    } catch (error) {
+      logger.error({ err: error }, "Failed to send notification");
+    }
+
+    return {
+      status: "success" as const,
+      message: "Successfully enrolled in course. Payment required.",
+      data: { enrollmentId: enrollment.id },
+      sound: "success" as const,
+    };
+  } catch (error) {
+    logger.error({ err: error }, "Enrollment Error");
+    return {
+      status: "error",
+      message: "Failed to enroll in course",
+      sound: "error",
+    };
+  }
+}
+
+/**
+ * Student endpoint: Get their infrastructure-based course enrollments
+ */
+export async function getUserInfrastructureEnrollments(): Promise<ApiResponse<{ enrollments: any[] }>> {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) {
+    return {
+      status: "error",
+      message: "You must be logged in",
+      sound: "error",
+    };
+  }
+
+  try {
+    const enrollments = await prisma.enrollment.findMany({
+      where: {
+        userId: session.user.id,
+        infrastructure: {
+          isNot: null,
+        },
+      },
+      include: {
+        Course: true,
+        infrastructure: {
+          include: {
+            town: true,
+          },
+        },
+      },
+    });
+
+    return {
+      status: "success" as const,
+      message: "Enrollments retrieved",
+      data: { enrollments },
+      sound: "success" as const,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: "Failed to fetch enrollments",
+      sound: "error",
+    };
+  }
+}

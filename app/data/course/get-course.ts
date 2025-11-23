@@ -53,10 +53,9 @@ export async function getIndividualCourse(slug: string) {
               currentEnrollment: true,
               location: true,
               publicContact: true,
-              images: true,
+              facilityImageKey: true,
+              locationImageKey: true,
               enrollmentDeadline: true,
-              openTime: true,
-              closeTime: true,
             },
             orderBy: { createdAt: "asc" },
           },
@@ -64,7 +63,7 @@ export async function getIndividualCourse(slug: string) {
         orderBy: { createdAt: "asc" },
       },
     },
-  });
+  }) as any;
 
   if (!course) {
     return notFound();

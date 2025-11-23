@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
+import logger from "@/lib/logger";
 
 // Define the return type for the status check API (matching your /api/enrollment/status response)
 interface StatusResult {
@@ -74,7 +75,7 @@ export function ClientStatusPoller({ paymentId }: { paymentId: string }) {
           }
         })
         .catch((error) => {
-          console.error("Polling fetch failed:", error);
+          logger.error({ err: error }, "Polling fetch failed");
         });
     }, POLLING_INTERVAL);
 

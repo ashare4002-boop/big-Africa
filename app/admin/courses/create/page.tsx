@@ -14,6 +14,7 @@ import {
   courseSchema,
   CourseSchemaType,
   courseStatus,
+  courseTypes,
 } from "@/lib/zodSchema";
 import { ArrowLeft, Loader2, PlusIcon, SparkleIcon } from "lucide-react";
 import Link from "next/link";
@@ -65,6 +66,7 @@ export default function CourseCreationPage() {
       smallDescription: "",
       slug: "",
       status: "Draft",
+      courseType: "NORMAL",
     },
   });
 
@@ -309,6 +311,33 @@ export default function CourseCreationPage() {
                           {courseStatus.map((category) => (
                             <SelectItem key={category} value={category}>
                               {category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              <FormField
+                  control={form.control}
+                  name="courseType"
+                  render={({ field }) => (
+                    <FormItem className="w-full">
+                      <FormLabel className="text-left">Course Type</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select Course Type" />
+                          </SelectTrigger> 
+                        </FormControl>
+                        <SelectContent>
+                          {courseTypes.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type === "NORMAL" ? "Online Course" : "Infrastructure-Based (Physical Learning Centers)"}
                             </SelectItem>
                           ))}
                         </SelectContent>

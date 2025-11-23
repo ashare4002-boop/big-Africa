@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { createVerify } from "crypto";
 import { env } from "@/lib/env";
+import logger from "@/lib/logger";
 
 export async function POST(req: Request) {
   try {
@@ -13,10 +14,10 @@ export async function POST(req: Request) {
     const timestamp = headersList.get("x-timestamp") || headersList.get("date");
 
     // Debug log to help trace what arrives
-    console.log(`🪝 Webhook received. Timestamp: ${timestamp}, Signature present: ${!!signature}`);
+    logger.debug({ timestamp, signaturePresent: !!signature }, "Webhook received");
 
     if (!signature || !timestamp) {
-      console.error("Missing Nkwa Headers:", Object.fromEntries(headersList.entries()));
+      logger.error({ headers: Object.fromEntries(headersList.entries()) }, "Missing NKWA webhook headers");
       return NextResponse.json(
         { error: "Missing required headers (x-sig or x-timestamp)" },
         { status: 400 }
@@ -27,7 +28,6 @@ export async function POST(req: Request) {
     const body = await req.text();
 
     // 3. Dynamic URL Construction
-    // This ensures the verification URL matches exactly what Nkwa sent (https vs http, ngrok vs localhost)
     const host = headersList.get("host"); 
     const protocol = headersList.get("x-forwarded-proto") || "https"; 
     const callbackUrl = `${protocol}://${host}/api/webhook/nkwa`;
@@ -44,8 +44,7 @@ export async function POST(req: Request) {
       const isValid = verifyWebhookSignature(publicKey, message, signature);
 
       if (!isValid) {
-        console.error("❌ Signature Verification Failed");
-        console.error("Computed Message:", message);
+        logger.warn({ messageHash: message.substring(0, 50) }, "Webhook signature verification failed");
         return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
       }
     }
@@ -57,15 +56,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Payment ID required" }, { status: 400 });
     }
 
-    // Log the actual status received to help you debug
-    console.log(`📝 Payment update: ${payment.id} | Status: ${payment.status}`);
+    // Log the actual status received
+    logger.info({ paymentId: payment.id, paymentStatus: payment.status }, "Payment webhook received");
 
     const enrollment = await prisma.enrollment.findUnique({
       where: { transactionId: payment.id },
     });
 
     if (!enrollment) {
-      console.warn(`⚠️ Enrollment not found for transaction: ${payment.id}`);
+      logger.warn({ transactionId: payment.id }, "Enrollment not found for transaction - unable to process payment");
       // Return 200 so Nkwa stops retrying; we can't process a missing enrollment
       return NextResponse.json({ received: true }, { status: 200 });
     }
@@ -81,15 +80,39 @@ export async function POST(req: Request) {
       const failedStatuses = ["FAILED", "CANCELED", "CANCELLED", "DECLINED"];
 
       if (successStatuses.includes(statusUpper)) {
-        await prisma.enrollment.update({
+        const updatedEnrollment = await prisma.enrollment.update({
           where: { id: enrollment.id },
           data: {
             status: "Active", // Matches your schema Enum
             paidAt: new Date(),
             rawResponse: payment,
           },
+          include: {
+            User: true,
+            Course: true,
+            infrastructure: true,
+          },
         });
-        console.log(`✅ Enrollment ${enrollment.id} activated!`);
+
+        // Send payment receipt email
+        try {
+          const notif = await import("@/lib/notifications");
+          const user = (updatedEnrollment.User as any);
+          const course = (updatedEnrollment.Course as any);
+          await (notif as any).sendPaymentReceipt(user?.email, {
+            studentName: user?.name || "Student",
+            courseName: course?.title,
+            infrastructureName: (updatedEnrollment.infrastructure as any)?.name || "N/A",
+            amount: enrollment.amount,
+            transactionId: payment.id,
+            paymentDate: new Date(),
+            nextPaymentDue: updatedEnrollment.nextPaymentDue || new Date(),
+          });
+        } catch (error) {
+          logger.error({ err: error, enrollmentId: enrollment.id }, "Failed to send payment receipt email");
+        }
+
+        logger.info({ enrollmentId: enrollment.id }, "Enrollment activated after payment");
       } 
       else if (failedStatuses.includes(statusUpper)) {
         await prisma.enrollment.update({
@@ -99,7 +122,8 @@ export async function POST(req: Request) {
             rawResponse: payment,
           },
         });
-        console.log(`❌ Enrollment ${enrollment.id} cancelled.`);
+        // REPLACED: console.log(`❌ Enrollment ${enrollment.id} cancelled.`);
+        logger.info({ enrollmentId: enrollment.id }, "Enrollment cancelled by payment webhook");
       }
       else {
         // Use this to catch statuses like "PENDING" and just update the raw log
@@ -107,15 +131,18 @@ export async function POST(req: Request) {
           where: { id: enrollment.id },
           data: { rawResponse: payment }
         });
-        console.log(`ℹ️ Status is '${statusUpper}' (not final). Enrollment remains Pending.`);
+        // REPLACED: console.log(`ℹ️ Status is '${statusUpper}' (not final). Enrollment remains Pending.`);
+        logger.info({ enrollmentId: enrollment.id, status: statusUpper }, "Enrollment status non-final, remains Pending");
       }
     } else {
-      console.log(`ℹ️ Enrollment ${enrollment.id} is already ${enrollment.status}. Ignoring update.`);
+      // REPLACED: console.log(`ℹ️ Enrollment ${enrollment.id} is already ${enrollment.status}. Ignoring update.`);
+      logger.info({ enrollmentId: enrollment.id, currentStatus: enrollment.status }, "Ignoring update: Enrollment is already final");
     }
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error) {
-    console.error("Webhook Internal Error:", error);
+    // REPLACED: console.error("Webhook Internal Error:", error);
+    logger.error({ err: error }, "Webhook Internal Server Error");
     // Return 500 so Nkwa retries if it was a server crash
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
@@ -131,7 +158,8 @@ function verifyWebhookSignature(
     verifier.update(message);
     return verifier.verify(publicKey, Buffer.from(signatureBase64, "base64"));
   } catch (error) {
-    console.error("Crypto Error:", error);
+    // REPLACED: console.error("Crypto Error:", error);
+    logger.error({ err: error }, "Webhook signature crypto verification failed");
     return false;
   }
 }

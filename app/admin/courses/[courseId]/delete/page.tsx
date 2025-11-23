@@ -33,11 +33,12 @@ export default function DeleteCourseRoute() {
         return;
       }
 
-      if (result.status === "success") {
-        toastWithSound(result.sound || "success", result.message);
+      const typedResult = result as any;
+      if (typedResult?.status === "success") {
+        toastWithSound(typedResult.sound || "success", typedResult.message);
         router.push("/admin/courses");
-      } else if (result.status === "error") {
-        toastWithSound(result.sound || "error", result.message);
+      } else if (typedResult?.status === "error") {
+        toastWithSound(typedResult.sound || "error", typedResult.message);
       }
     });
   }

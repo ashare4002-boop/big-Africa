@@ -18,6 +18,8 @@ export const env = createEnv({
      NKWA_API_KEY: z.string().min(1),
      NKWA_PUBLIC_KEY: z.string().min(1),
      NKWA_PAY_SERVER_URL: z.string().url(),
+     SUPPORT_EMAIL: z.string().email().default("support@a-share.dev"),
+     CRON_SECRET: z.string().min(1).optional(),
     },
 
     client: {

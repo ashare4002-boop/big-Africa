@@ -32,11 +32,11 @@ export default async function SlugPage({ params }: { params: Params }) {
   const course = await getIndividualCourse(slug);
   const isEnrolled = await checkIfCourseBought(course.id);
   const totalLessons =
-    course.chapters.reduce(
-      (total, chapter) => total + chapter.lesson.length,
+    (course.chapters as any[])?.reduce(
+      (total: number, chapter: any) => total + chapter.lesson.length,
       0
     ) || 0;
-  const totalChapters = course.chapters.length;
+  const totalChapters = (course.chapters as any[])?.length || 0;
   const features = [
     "Full-time access",
     "Downloadable resources",
@@ -108,7 +108,7 @@ export default async function SlugPage({ params }: { params: Params }) {
           </div>
 
           <div className="space-y-4">
-            {course.chapters.map((chapter, index) => (
+            {(course.chapters as any[])?.map((chapter: any, index: number) => (
               <Collapsible key={chapter.id} defaultOpen={index === 0}>
                 <Card className="p-0 overflow-hidden border-2 transition-all duration-200 hover:shadow-md gap-0">
                   <CollapsibleTrigger>
@@ -142,7 +142,7 @@ export default async function SlugPage({ params }: { params: Params }) {
                   <CollapsibleContent>
                     <div className="border-t bg-muted/20">
                       <div className="p-6 pt-4 space-y-3">
-                        {chapter.lesson.map((lesson, lessonIndex) => (
+                        {(chapter.lesson as any[])?.map((lesson: any, lessonIndex: number) => (
                           <div
                             key={lesson.id}
                             className="flex items-center gap-4 rounded-lg p-3 hover:bg-accent transition-colors"

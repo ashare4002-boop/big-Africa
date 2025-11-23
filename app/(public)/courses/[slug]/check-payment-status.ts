@@ -2,6 +2,7 @@
 
 import { nkwa } from "@/lib/nkwa";
 import { prisma } from "@/lib/db";
+import logger from "@/lib/logger";
 
 export async function checkPaymentStatus(paymentId: string) {
   try {
@@ -76,7 +77,9 @@ export async function checkPaymentStatus(paymentId: string) {
       courseSlug: enrollment.Course.slug,
     };
   } catch (error: any) {
-    console.error("Error checking payment status:", error);
+    // REPLACED: console.error("Error checking payment status:", error);
+    logger.error({ err: error }, "Failed to check payment status with provider");
+    
     return {
       status: "error" as const,
       message: error?.message || "Failed to check payment status",
