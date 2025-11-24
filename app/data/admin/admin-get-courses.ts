@@ -24,6 +24,7 @@ export async function adminGetCourses() {
       filekey: true,
       slug: true,
       category: true,
+      courseType: true,
        
     },
   });

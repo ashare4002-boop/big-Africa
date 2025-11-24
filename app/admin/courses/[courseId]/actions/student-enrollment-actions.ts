@@ -6,9 +6,7 @@ import arcjet, { fixedWindow } from "@/lib/arcjet";
 import { request } from "@arcjet/next";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { calculateNextPaymentDue, isInfrastructureLocked } from "@/lib/infrastructure-utils";
-import logger from "@/lib/logger";
-import { env } from "@/lib/env";
+import { calculateNextPaymentDue } from "@/lib/infrastructure-utils";
 
 const aj = arcjet.withRule(
   fixedWindow({
@@ -24,7 +22,7 @@ const aj = arcjet.withRule(
 export async function enrollInInfrastructureBaseCourse(
   courseId: string,
   infrastructureId: string,
-  townId: string
+  _townId: string
 ): Promise<ApiResponse<{ enrollmentId: string }>> {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -163,11 +161,11 @@ export async function enrollInInfrastructureBaseCourse(
           infrastructureName: infrastructure.name,
           town: "TBD",
           monthlyFee: course.price,
-          paymentLink: `${env.NEXT_PUBLIC_BASE_URL}/enrollment/${enrollment.id}/pay`,
+          paymentLink: `${process.env.NEXT_PUBLIC_BASE_URL}/enrollment/${enrollment.id}/pay`,
         }),
       ]);
     } catch (error) {
-      logger.error({ err: error }, "Failed to send notification");
+      console.error("Failed to send notifications:", error);
     }
 
     return {
@@ -177,7 +175,7 @@ export async function enrollInInfrastructureBaseCourse(
       sound: "success" as const,
     };
   } catch (error) {
-    logger.error({ err: error }, "Enrollment Error");
+    console.error("Enrollment error:", error);
     return {
       status: "error",
       message: "Failed to enroll in course",

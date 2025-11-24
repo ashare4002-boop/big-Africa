@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { processMonthlySubscriptionCheck } from "@/lib/infrastructure-utils";
 import logger from "@/lib/logger";
-import { env } from "@/lib/env";
 
 /**
  * GET /api/cron/monthly-subscription-check
@@ -15,7 +14,7 @@ export async function GET(request: NextRequest) {
   try {
     // Validate cron secret (if you're using an external cron service)
     const cronSecret = request.headers.get("x-cron-secret");
-    const expectedSecret = env.CRON_SECRET;
+    const expectedSecret = process.env.CRON_SECRET;
 
     if (expectedSecret && cronSecret !== expectedSecret) {
       return NextResponse.json(
@@ -23,8 +22,6 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
-
-    logger.debug("Starting monthly subscription check job.");
 
     // Run the monthly subscription check
     await processMonthlySubscriptionCheck();

@@ -1,7 +1,7 @@
 import { getIndividualCourse } from "@/app/data/course/get-course";
 import { RenderDescription } from "@/components/rich-text-editor/RenderDescription";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Collapsible,
@@ -32,11 +32,15 @@ export default async function SlugPage({ params }: { params: Params }) {
   const course = await getIndividualCourse(slug);
   const isEnrolled = await checkIfCourseBought(course.id);
   const totalLessons =
-    (course.chapters as any[])?.reduce(
-      (total: number, chapter: any) => total + chapter.lesson.length,
+    (course.chapters as unknown[])?.reduce(
+      (total: number, chapter: unknown) => {
+        const chapterData = chapter as Record<string, unknown>;
+        const lessonLength = Array.isArray(chapterData.lesson) ? chapterData.lesson.length : 0;
+        return total + lessonLength;
+      },
       0
     ) || 0;
-  const totalChapters = (course.chapters as any[])?.length || 0;
+  const totalChapters = (course.chapters as unknown[])?.length || 0;
   const features = [
     "Full-time access",
     "Downloadable resources",

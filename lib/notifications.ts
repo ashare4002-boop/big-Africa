@@ -179,7 +179,7 @@ export async function sendEjectionNotice(
           </div>
           <p>You have until <strong>${data.reEnrollmentDeadline.toLocaleDateString()}</strong> to complete your payment and reclaim your enrollment.</p>
           <p>After this date, your spot may be reassigned to another student.</p>
-          <p><a href="${env.NEXT_PUBLIC_BASE_URL}/my-enrollments" style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 15px 0;">Make Payment Now</a></p>
+          <p><a href="${process.env.NEXT_PUBLIC_BASE_URL}/my-enrollments" style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 15px 0;">Make Payment Now</a></p>
           ${SUPPORT_FOOTER}
         </div>
       `,

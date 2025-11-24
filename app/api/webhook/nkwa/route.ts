@@ -28,6 +28,7 @@ export async function POST(req: Request) {
     const body = await req.text();
 
     // 3. Dynamic URL Construction
+    // This ensures the verification URL matches exactly what Nkwa sent (https vs http, ngrok vs localhost)
     const host = headersList.get("host"); 
     const protocol = headersList.get("x-forwarded-proto") || "https"; 
     const callbackUrl = `${protocol}://${host}/api/webhook/nkwa`;
@@ -122,8 +123,7 @@ export async function POST(req: Request) {
             rawResponse: payment,
           },
         });
-        // REPLACED: console.log(`❌ Enrollment ${enrollment.id} cancelled.`);
-        logger.info({ enrollmentId: enrollment.id }, "Enrollment cancelled by payment webhook");
+        console.log(`❌ Enrollment ${enrollment.id} cancelled.`);
       }
       else {
         // Use this to catch statuses like "PENDING" and just update the raw log
@@ -131,18 +131,15 @@ export async function POST(req: Request) {
           where: { id: enrollment.id },
           data: { rawResponse: payment }
         });
-        // REPLACED: console.log(`ℹ️ Status is '${statusUpper}' (not final). Enrollment remains Pending.`);
-        logger.info({ enrollmentId: enrollment.id, status: statusUpper }, "Enrollment status non-final, remains Pending");
+        console.log(`ℹ️ Status is '${statusUpper}' (not final). Enrollment remains Pending.`);
       }
     } else {
-      // REPLACED: console.log(`ℹ️ Enrollment ${enrollment.id} is already ${enrollment.status}. Ignoring update.`);
-      logger.info({ enrollmentId: enrollment.id, currentStatus: enrollment.status }, "Ignoring update: Enrollment is already final");
+      console.log(`ℹ️ Enrollment ${enrollment.id} is already ${enrollment.status}. Ignoring update.`);
     }
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error) {
-    // REPLACED: console.error("Webhook Internal Error:", error);
-    logger.error({ err: error }, "Webhook Internal Server Error");
+    console.error("Webhook Internal Error:", error);
     // Return 500 so Nkwa retries if it was a server crash
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
@@ -158,8 +155,7 @@ function verifyWebhookSignature(
     verifier.update(message);
     return verifier.verify(publicKey, Buffer.from(signatureBase64, "base64"));
   } catch (error) {
-    // REPLACED: console.error("Crypto Error:", error);
-    logger.error({ err: error }, "Webhook signature crypto verification failed");
+    console.error("Crypto Error:", error);
     return false;
   }
 }

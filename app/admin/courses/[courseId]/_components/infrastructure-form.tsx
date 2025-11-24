@@ -20,24 +20,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createInfrastructure } from "../actions/infrastructure-actions";
+import { createInfrastructure, updateInfrastructure } from "../actions/infrastructure-actions";
 import { useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { toast } from "sonner";
+import { Uploader } from "@/components/file-uploader/Uploader";
 
 interface InfrastructureFormProps {
   courseId: string;
   towns: Array<{ id: string; name: string }>;
   onSuccess?: () => void;
+  editingId?: string;
+  initialData?: any;
 }
 
-export function InfrastructureForm({ courseId, towns, onSuccess }: InfrastructureFormProps) {
+export function InfrastructureForm({ 
+  courseId, 
+  towns, 
+  onSuccess, 
+  editingId,
+  initialData 
+}: InfrastructureFormProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [tutors, setTutors] = useState<string[]>([""]); 
+  const [tutors, setTutors] = useState<string[]>(initialData?.tutorNames || [""]); 
 
   const form = useForm({
     resolver: zodResolver(infrastructureSchema) as any,
-    defaultValues: {
+    defaultValues: initialData || {
       name: "",
       capacity: 1,
       location: "",
@@ -54,22 +63,52 @@ export function InfrastructureForm({ courseId, towns, onSuccess }: Infrastructur
   });
 
   const onSubmit = async (values: any) => {
+    // Validate tutors
+    const validTutors = tutors.filter(t => t.trim());
+    if (validTutors.length === 0) {
+      toast.error("Please add at least one tutor");
+      return;
+    }
+
+    // Validate images
+    if (!values.facilityImageKey || !values.facilityImageKey.trim()) {
+      toast.error("Please upload a facility image");
+      return;
+    }
+
+    if (!values.locationImageKey || !values.locationImageKey.trim()) {
+      toast.error("Please upload a location image");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const result = await createInfrastructure({
+      const payload = {
         ...values,
-        courseId,
-        tutorNames: tutors.filter(t => t.trim()),
-      });
+        tutorNames: validTutors,
+      };
+
+      let result;
+      if (editingId) {
+        result = await updateInfrastructure(editingId, payload);
+      } else {
+        result = await createInfrastructure({
+          ...payload,
+          courseId,
+        });
+      }
 
       if (result.status === "success") {
         toast.success(result.message);
+        form.reset();
+        setTutors([""]);
         onSuccess?.();
       } else {
-        toast.error(result.message);
+        toast.error(result.message || "Failed to save infrastructure");
       }
     } catch (error) {
-      toast.error("Failed to create infrastructure");
+      console.error("Form submission error:", error);
+      toast.error(`Failed to ${editingId ? 'update' : 'create'} infrastructure`);
     } finally {
       setIsLoading(false);
     }
@@ -246,6 +285,42 @@ export function InfrastructureForm({ courseId, towns, onSuccess }: Infrastructur
           )}
         />
 
+        <FormField
+          control={form.control as any}
+          name="facilityImageKey"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Facility Image</FormLabel>
+              <FormControl>
+                <Uploader
+                  fileTypeAccepted="image"
+                  value={field.value}
+                  onChange={(value) => field.onChange(value || "")}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control as any}
+          name="locationImageKey"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Location Image</FormLabel>
+              <FormControl>
+                <Uploader
+                  fileTypeAccepted="image"
+                  value={field.value}
+                  onChange={(value) => field.onChange(value || "")}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <div>
           <FormLabel className="mb-2 block">Tutor Names</FormLabel>
           <div className="space-y-2">
@@ -283,7 +358,7 @@ export function InfrastructureForm({ courseId, towns, onSuccess }: Infrastructur
 
         <Button type="submit" disabled={isLoading} className="w-full">
           {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-          Create Infrastructure
+          {editingId ? 'Update Infrastructure' : 'Create Infrastructure'}
         </Button>
       </form>
     </Form>

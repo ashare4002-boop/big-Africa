@@ -13,6 +13,7 @@ import { useConstructUrl } from "@/hooks/use-construct-url";
 import {
   ArrowRight,
   BookAIcon,
+  Building2,
   Eye,
   MoreVertical,
   Pencil,
@@ -52,6 +53,18 @@ export function AdminCourseCard({ data }: iAppProps) {
                 Preview
               </Link>
             </DropdownMenuItem>
+
+            {data.courseType === "INFRASTRUCTURE_BASE" && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href={`/admin/courses/${data.id}/infrastructure`}>
+                    <Building2 className="size-4 mr-2 text-blue-600" />
+                    Manage Infrastructure
+                  </Link>
+                </DropdownMenuItem>
+              </>
+            )}
 
             <DropdownMenuSeparator />
 

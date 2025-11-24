@@ -42,7 +42,6 @@ import { NewChapterModal } from "./NewChapterModal";
 import { NewLessonModal } from "./NewLessonModal";
 import { DeleteLesson } from "./DeleteLesson";
 import { DeleteChapter } from "./DeleteChapter";
-import logger from "@/lib/logger";
 
 interface iAppProps {
   data: AdminCourseSingularType;
@@ -77,7 +76,7 @@ export function CourseStructure({ data }: iAppProps) {
 
   const [items, setItems] = useState(initialItems);
 
-  logger.debug({ items }, "List of items retrieved for processing");
+  console.log(items);
 
   useEffect(() => { // <------- use effect hook to sync the client state nd the server state
     setItems((prevItems) => {

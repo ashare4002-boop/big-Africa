@@ -14,7 +14,6 @@ import  {
 import { toNextJsHandler } from "better-auth/next-js";
 import { NextRequest } from "next/server";
 import  arcjet  from "@/lib/arcjet";
-import logger from "@/lib/logger";
 
 // The arcjet instance is created outside of the handler
 
@@ -96,7 +95,7 @@ export const { GET } = authHandlers;
 export const POST = async (req: NextRequest) => {
   const decision = await protect(req);
 
-  logger.info({ decision }, "Arcjet decision received");
+  console.log("Arcjet Decision:", decision);
 
   if (decision.isDenied()) {
     if (decision.reason.isRateLimit()) {

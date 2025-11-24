@@ -3,7 +3,6 @@ import { nkwa } from "@/lib/nkwa";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import logger from "@/lib/logger";
 
 /**
  * POST /api/enrollment/pay
@@ -87,7 +86,7 @@ export async function POST(request: NextRequest) {
       reference: paymentReference,
     });
   } catch (error) {
-    logger.error({ err: error }, "Payment initialization error");
+    console.error("Payment initialization error:", error);
     return NextResponse.json(
       { error: "Failed to initialize payment" },
       { status: 500 }

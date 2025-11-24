@@ -75,7 +75,7 @@ export function EnrollmentButton({ courseId }: { courseId: string }) {
         <DialogHeader>
           <DialogTitle>Complete Your Enrollment</DialogTitle>
           <DialogDescription>
-            Enter your mobile money phone number to pay for this course. You'll
+            Enter your mobile money phone number to pay for this course. You&apos;ll
             receive a prompt on your phone to authorize the payment.
           </DialogDescription>
         </DialogHeader>

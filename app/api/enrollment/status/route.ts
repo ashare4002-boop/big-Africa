@@ -3,7 +3,6 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/app/data/user/verify-user-session";
-import logger from "@/lib/logger";
 
 // This is a GET request, typically secured by session or authentication 
 export async function GET(request: Request) {
@@ -53,7 +52,7 @@ export async function GET(request: Request) {
         });
 
     } catch (error) {
-         logger.error({ err: error }, "Polling endpoint error");
+        console.error("Polling endpoint error:", error);
         return NextResponse.json(
             { status: "Error", message: "Internal server error" },
             { status: 500 }

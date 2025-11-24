@@ -3,7 +3,6 @@
 import { requireAdmin } from "@/app/data/admin/require-admin";
 import arcjet, { fixedWindow } from "@/lib/arcjet";
 import { prisma } from "@/lib/db";
-import logger from "@/lib/logger";
 import { ApiResponse } from "@/lib/type";
 import { courseSchema, CourseSchemaType } from "@/lib/zodSchema";
 import { request } from "@arcjet/next";
@@ -18,7 +17,7 @@ const aj = arcjet.withRule(
 
 export async function CreateInfrastructureBaseCourse(
   values: CourseSchemaType & { courseType: "INFRASTRUCTURE_BASE" }
-): Promise<ApiResponse> {
+): Promise<ApiResponse<{ courseId: string }>> {
   const session = await requireAdmin();
 
   try {
@@ -73,11 +72,10 @@ export async function CreateInfrastructureBaseCourse(
     return {
       status: "success",
       message: "Infrastructure-based course created successfully",
-      data: { courseId: course.id } as any,
+      data: { courseId: course.id },
       sound: "success",
     };
-  } catch (error) {
-    logger.error({ err: error }, "Course creation error");
+  } catch (_error) {
     return {
       status: "error",
       message: "Failed to create course",

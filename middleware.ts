@@ -8,7 +8,7 @@ const aj = arcjet({
   rules: [
     detectBot({
       mode: "LIVE",
-      allow: ["CATEGORY:SEARCH_ENGINE", "CATEGORY:MONITOR", "CATEGORY:PREVIEW"], 
+      allow: ["CATEGORY:SEARCH_ENGINE", "CATEGORY:MONITOR", "CATEGORY:PREVIEW"],
     }),
   ],
 });
@@ -22,8 +22,10 @@ async function authMiddleware(request: NextRequest) {
 }
 
 export const config = {
-  // Exclude internal assets, auth routes, and the Nkwa webhook from Arcjet
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth|api/webhook/nkwa).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|api/auth|api/webhook/nkwa).*)",
+  ],
+  runtime: "nodejs", // ← FIX: force Node runtime to allow better-auth
 };
 
 export default createMiddleware(aj, async (request: NextRequest) => {

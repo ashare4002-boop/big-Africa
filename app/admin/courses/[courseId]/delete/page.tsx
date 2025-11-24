@@ -33,7 +33,7 @@ export default function DeleteCourseRoute() {
         return;
       }
 
-      const typedResult = result as any;
+      const typedResult = result as { status: string; sound?: "error" | "success" | "info"; message: string };
       if (typedResult?.status === "success") {
         toastWithSound(typedResult.sound || "success", typedResult.message);
         router.push("/admin/courses");

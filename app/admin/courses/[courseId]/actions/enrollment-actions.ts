@@ -3,10 +3,8 @@
 import { requireAdmin } from "@/app/data/admin/require-admin";
 import { prisma } from "@/lib/db";
 import { ApiResponse } from "@/lib/type";
-import { calculateNextPaymentDue, isInfrastructureLocked } from "@/lib/infrastructure-utils";
 import arcjet, { fixedWindow } from "@/lib/arcjet";
 import { request } from "@arcjet/next";
-import logger from "@/lib/logger";
 
 const aj = arcjet.withRule(
   fixedWindow({
@@ -19,8 +17,8 @@ const aj = arcjet.withRule(
 /**
  * Admin endpoint: Get all enrollments for a specific infrastructure-based course
  */
-export async function getCourseEnrollments(courseId: string): Promise<ApiResponse<{ course: any }>> {
-  const session = await requireAdmin();
+export async function getCourseEnrollments(courseId: string): Promise<ApiResponse<{ course: unknown }>> {
+  await requireAdmin();
 
   try {
     const course = await prisma.course.findUnique({
@@ -60,7 +58,7 @@ export async function getCourseEnrollments(courseId: string): Promise<ApiRespons
       },
       sound: "success" as const,
     };
-  } catch (error) {
+  } catch (_error) {
     return {
       status: "error",
       message: "Failed to fetch enrollments",
@@ -214,7 +212,7 @@ export async function unlockUserForReEnrollment(enrollmentId: string): Promise<A
 /**
  * Get infrastructure capacity and earnings analytics
  */
-export async function getInfrastructureAnalytics(courseId: string): Promise<ApiResponse<{ analytics: any[] }>> {
+export async function getInfrastructureAnalytics(courseId: string): Promise<ApiResponse<{ analytics: unknown[] }>> {
   const session = await requireAdmin();
 
   try {
@@ -236,7 +234,7 @@ export async function getInfrastructureAnalytics(courseId: string): Promise<ApiR
 
     const analytics = await Promise.all(
       infrastructures.map(async (infra) => {
-        const isLocked = await isInfrastructureLocked(infra.id);
+        const isLocked = infra.isLocked;
         const activeEnrollments = (infra.enrollment as any[]).filter((e: any) => !e.isEjected);
         const ejectedUsers = (infra.enrollment as any[]).filter((e: any) => e.isEjected);
 
@@ -278,7 +276,7 @@ export async function getInfrastructureAnalytics(courseId: string): Promise<ApiR
       sound: "success" as const,
     };
   } catch (error) {
-     logger.error({ err: error }, "Analytic Error");
+    console.error("Analytics error:", error);
     return {
       status: "error",
       message: "Failed to fetch analytics",

@@ -2,7 +2,6 @@
 
 import { nkwa } from "@/lib/nkwa";
 import { prisma } from "@/lib/db";
-import logger from "@/lib/logger";
 
 export async function checkPaymentStatus(paymentId: string) {
   try {
@@ -24,6 +23,8 @@ export async function checkPaymentStatus(paymentId: string) {
 
     let enrollmentStatus: "Pending" | "Active" | "Cancelled" | "Paid";
 
+    const rawResponse = JSON.parse(JSON.stringify(payment));
+
     switch (payment.status) {
       case "success":
         enrollmentStatus = "Active";
@@ -32,7 +33,7 @@ export async function checkPaymentStatus(paymentId: string) {
           data: {
             status: "Active",
             paidAt: new Date(),
-            rawResponse: payment as any,
+            rawResponse,
           },
         });
         break;
@@ -43,7 +44,7 @@ export async function checkPaymentStatus(paymentId: string) {
           where: { id: enrollment.id },
           data: {
             status: "Cancelled",
-            rawResponse: payment as any,
+            rawResponse,
           },
         });
         break;
@@ -54,7 +55,7 @@ export async function checkPaymentStatus(paymentId: string) {
           where: { id: enrollment.id },
           data: {
             status: "Cancelled",
-            rawResponse: payment as any,
+            rawResponse,
           },
         });
         break;
@@ -64,7 +65,7 @@ export async function checkPaymentStatus(paymentId: string) {
         await prisma.enrollment.update({
           where: { id: enrollment.id },
           data: {
-            rawResponse: payment as any,
+            rawResponse,
           },
         });
     }
@@ -76,13 +77,12 @@ export async function checkPaymentStatus(paymentId: string) {
       courseTitle: enrollment.Course.title,
       courseSlug: enrollment.Course.slug,
     };
-  } catch (error: any) {
-    // REPLACED: console.error("Error checking payment status:", error);
-    logger.error({ err: error }, "Failed to check payment status with provider");
-    
+  } catch (error: unknown) {
+    const err = error as Record<string, unknown> | null;
+    console.error("Error checking payment status:", error);
     return {
       status: "error" as const,
-      message: error?.message || "Failed to check payment status",
+      message: (err?.message as string) || "Failed to check payment status",
     };
   }
 }

@@ -17,8 +17,20 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, MapPin, Edit2, Trash2 } from "lucide-react";
 import { InfrastructureForm } from "./infrastructure-form";
+import { TownForm } from "./town-form";
+import { deleteInfrastructure } from "../actions/infrastructure-actions";
+import { toast } from "sonner";
 
 interface Infrastructure {
   id: string;
@@ -49,7 +61,28 @@ export function InfrastructureManagement({
   onInfrastructureUpdate,
 }: InfrastructureManagementProps) {
   const [openDialog, setOpenDialog] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [openTownDialog, setOpenTownDialog] = useState(false);
+  const [editingInfra, setEditingInfra] = useState<Infrastructure | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async (infrastructureId: string) => {
+    setIsDeleting(true);
+    try {
+      const result = await deleteInfrastructure(infrastructureId);
+      if (result.status === "success") {
+        toast.success(result.message);
+        setDeleteConfirmId(null);
+        onInfrastructureUpdate?.();
+      } else {
+        toast.error(result.message);
+      }
+    } catch (error) {
+      toast.error("Failed to delete infrastructure");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (courseType !== "INFRASTRUCTURE_BASE") {
     return null;
@@ -66,6 +99,43 @@ export function InfrastructureManagement({
 
   return (
     <div className="space-y-6">
+      {towns.length === 0 && (
+        <Card className="border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10">
+          <CardHeader>
+            <CardTitle className="text-primary flex items-center gap-2">
+              <MapPin className="w-5 h-5" />
+              Create Towns First
+            </CardTitle>
+            <CardDescription className="text-foreground/70">
+              Start by creating one or more towns (geographic regions) where you'll add learning centers.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Dialog open={openTownDialog} onOpenChange={setOpenTownDialog}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Create First Town
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create a Town</DialogTitle>
+                  <DialogDescription>Add a geographic region for your learning centers</DialogDescription>
+                </DialogHeader>
+                <TownForm
+                  courseId={courseId}
+                  onSuccess={() => {
+                    setOpenTownDialog(false);
+                    onInfrastructureUpdate?.();
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Infrastructure Management</CardTitle>
@@ -73,43 +143,71 @@ export function InfrastructureManagement({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600">Total Capacity</p>
-              <p className="text-2xl font-bold">{capacityUsage.total}</p>
+            <div className="bg-gradient-to-br from-blue-900/20 to-blue-800/10 border border-blue-700/30 p-4 rounded-lg">
+              <p className="text-sm text-white">Total Capacity</p>
+              <p className="text-2xl font-bold text-white">{capacityUsage.total}</p>
             </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600">Currently Enrolled</p>
-              <p className="text-2xl font-bold">{capacityUsage.used}</p>
+            <div className="bg-gradient-to-br from-green-900/20 to-green-800/10 border border-green-700/30 p-4 rounded-lg">
+              <p className="text-sm text-white">Currently Enrolled</p>
+              <p className="text-2xl font-bold text-white">{capacityUsage.used}</p>
             </div>
-            <div className={`${isFull ? 'bg-red-50' : 'bg-orange-50'} p-4 rounded-lg`}>
-              <p className="text-sm text-gray-600">Available Spots</p>
-              <p className="text-2xl font-bold">{Math.max(0, capacityUsage.total - capacityUsage.used)}</p>
-              {isFull && <p className="text-xs text-red-600 mt-1">Course is FULL</p>}
+            <div className={`border ${isFull ? 'bg-gradient-to-br from-red-900/20 to-red-800/10 border-red-700/30' : 'bg-gradient-to-br from-orange-900/20 to-orange-800/10 border-orange-700/30'} p-4 rounded-lg`}>
+              <p className="text-sm text-white">Available Spots</p>
+              <p className="text-2xl font-bold text-white">{Math.max(0, capacityUsage.total - capacityUsage.used)}</p>
+              {isFull && <p className="text-xs text-red-300 mt-1">Course is FULL</p>}
             </div>
           </div>
 
-          <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add Infrastructure
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Add Infrastructure</DialogTitle>
-                <DialogDescription>Create a new physical learning location</DialogDescription>
-              </DialogHeader>
-              <InfrastructureForm
-                courseId={courseId}
-                towns={towns}
-                onSuccess={() => {
-                  setOpenDialog(false);
-                  onInfrastructureUpdate?.();
-                }}
-              />
-            </DialogContent>
-          </Dialog>
+          {towns.length > 0 && (
+            <>
+              <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    Add Infrastructure
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl w-full">
+                  <DialogHeader>
+                    <DialogTitle>Add Infrastructure</DialogTitle>
+                    <DialogDescription>Create a new physical learning location</DialogDescription>
+                  </DialogHeader>
+                  <div className="max-h-[calc(100vh-200px)] overflow-y-auto pr-4">
+                    <InfrastructureForm
+                      courseId={courseId}
+                      towns={towns}
+                      onSuccess={() => {
+                        setOpenDialog(false);
+                        onInfrastructureUpdate?.();
+                      }}
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={openTownDialog} onOpenChange={setOpenTownDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    Add More Towns
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add a New Town</DialogTitle>
+                    <DialogDescription>Create another geographic region</DialogDescription>
+                  </DialogHeader>
+                  <TownForm
+                    courseId={courseId}
+                    onSuccess={() => {
+                      setOpenTownDialog(false);
+                      onInfrastructureUpdate?.();
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -141,14 +239,77 @@ export function InfrastructureManagement({
                   </div>
                 </div>
                 <div className="mt-4 flex gap-2">
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Edit2 className="w-4 h-4" />
-                    Edit
-                  </Button>
-                  <Button variant="destructive" size="sm" className="gap-2">
-                    <Trash2 className="w-4 h-4" />
-                    Delete
-                  </Button>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditingInfra(infra)}>
+                        <Edit2 className="w-4 h-4" />
+                        Edit
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <div className="max-h-[70vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Edit Infrastructure</DialogTitle>
+                          <DialogDescription>Update infrastructure details</DialogDescription>
+                        </DialogHeader>
+                        {editingInfra && (
+                          <InfrastructureForm
+                            courseId={courseId}
+                            towns={towns}
+                            editingId={editingInfra.id}
+                            initialData={{
+                              name: editingInfra.name,
+                              townId: editingInfra.townId,
+                              capacity: editingInfra.capacity,
+                              location: editingInfra.location,
+                              publicContact: "",
+                              privateContact: "",
+                              ownerPhoneNumber: editingInfra.ownerPhoneNumber,
+                              duration: 1,
+                              durationType: "MONTHS",
+                              enrollmentDeadline: "",
+                              facilityImageKey: "",
+                              locationImageKey: "",
+                            }}
+                            onSuccess={() => {
+                              setEditingInfra(null);
+                              onInfrastructureUpdate?.();
+                            }}
+                          />
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  <AlertDialog open={deleteConfirmId === infra.id} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => setDeleteConfirmId(infra.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </Button>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Infrastructure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete <strong>{infra.name}</strong>. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <div className="flex gap-2 justify-end">
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDelete(infra.id)}
+                          disabled={isDeleting}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          {isDeleting ? "Deleting..." : "Delete"}
+                        </AlertDialogAction>
+                      </div>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </CardContent>
             </Card>

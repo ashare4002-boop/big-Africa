@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, DollarSign, Users, Lock, Unlock } from "lucide-react";
+import { AlertCircle, Unlock } from "lucide-react";
 import { getInfrastructureAnalytics } from "../actions/enrollment-actions";
 import { unlockUserForReEnrollment } from "../actions/enrollment-actions";
 import { toast } from "sonner";
@@ -14,27 +14,47 @@ interface AdminInfrastructureDashboardProps {
   courseId: string;
 }
 
-export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDashboardProps) {
-  const [analytics, setAnalytics] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+interface AnalyticsItem {
+  id: string;
+  name: string;
+  town: string;
+  capacity: number;
+  currentEnrollment: number;
+  availableSpots: number;
+  isLocked: boolean;
+  status: string;
+  totalEarnings: number;
+  ownerPhoneNumber: string;
+  activeEnrollmentsCount: number;
+  ejectedUsersCount: number;
+  enrolledStudents: unknown[];
+  ejectedStudents: unknown[];
+}
 
-  useEffect(() => {
-    loadAnalytics();
-  }, [courseId]);
+export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDashboardProps) {
+  const [analytics, setAnalytics] = useState<AnalyticsItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const loadAnalytics = async () => {
     const result = await getInfrastructureAnalytics(courseId);
     if (result.status === "success" && result.data) {
-      setAnalytics((result.data as any).analytics || result.data);
+      const analyticsData = Array.isArray((result.data as unknown as Record<string, unknown>).analytics)
+        ? (result.data as unknown as Record<string, unknown>).analytics as AnalyticsItem[]
+        : (result.data as unknown as AnalyticsItem[]);
+      setAnalytics(analyticsData);
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [courseId, loadAnalytics]);
 
   const handleUnlockUser = async (enrollmentId: string) => {
     const result = await unlockUserForReEnrollment(enrollmentId);
     if (result.status === "success") {
       toast.success("User unlocked");
-      loadAnalytics();
+      await loadAnalytics();
     } else {
       toast.error(result.message);
     }
@@ -44,16 +64,16 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
     return <div>Loading analytics...</div>;
   }
 
-  const totalCapacity = analytics?.reduce((sum: number, a: any) => sum + a.capacity, 0) || 0;
-  const totalEnrolled = analytics?.reduce((sum: number, a: any) => sum + a.currentEnrollment, 0) || 0;
-  const totalEarnings = analytics?.reduce((sum: number, a: any) => sum + a.totalEarnings, 0) || 0;
+  const totalCapacity = analytics.reduce((sum: number, a: AnalyticsItem) => sum + a.capacity, 0) || 0;
+  const totalEnrolled = analytics.reduce((sum: number, a: AnalyticsItem) => sum + a.currentEnrollment, 0) || 0;
+  const totalEarnings = analytics.reduce((sum: number, a: AnalyticsItem) => sum + a.totalEarnings, 0) || 0;
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Capacity</CardTitle>
+            <CardTitle className="text-sm font-medium text-white">Total Capacity</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalCapacity}</div>
@@ -61,7 +81,7 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Enrolled</CardTitle>
+            <CardTitle className="text-sm font-medium text-white">Total Enrolled</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalEnrolled}</div>
@@ -69,18 +89,18 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Earnings</CardTitle>
+            <CardTitle className="text-sm font-medium text-white">Total Earnings</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold flex items-center gap-2">
-              <DollarSign className="w-5 h-5" />
+            <div className="text-xl font-semibold flex items-center gap-10">
+              XAF 
               {totalEarnings.toFixed(2)}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Available Spots</CardTitle>
+            <CardTitle className="text-sm font-medium text-white">Available Spots</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{Math.max(0, totalCapacity - totalEnrolled)}</div>
@@ -97,7 +117,7 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
 
         <TabsContent value="infrastructure">
           <div className="grid gap-4">
-            {analytics?.map((infra: any) => (
+            {analytics.map((infra: AnalyticsItem) => (
               <Card key={infra.id}>
                 <CardHeader>
                   <div className="flex justify-between items-start">
@@ -113,23 +133,23 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div>
-                      <p className="text-sm text-gray-600">Capacity</p>
+                      <p className="text-sm text-white">Capacity</p>
                       <p className="text-lg font-semibold">{infra.currentEnrollment}/{infra.capacity}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Available</p>
+                      <p className="text-sm text-white">Available</p>
                       <p className="text-lg font-semibold">{infra.availableSpots}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Earnings</p>
-                      <p className="text-lg font-semibold">${infra.totalEarnings.toFixed(2)}</p>
+                      <p className="text-sm text-white">Earnings</p>
+                      <p className="text-lg font-semibold">XAF{infra.totalEarnings.toFixed(2)}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Owner Phone</p>
+                      <p className="text-sm text-white">Owner Phone</p>
                       <p className="text-lg font-semibold">{infra.ownerPhoneNumber}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Enrolled</p>
+                      <p className="text-sm text-white">Enrolled</p>
                       <p className="text-lg font-semibold">{infra.activeEnrollmentsCount}</p>
                     </div>
                   </div>
@@ -141,7 +161,7 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
 
         <TabsContent value="students">
           <div className="space-y-4">
-            {analytics?.map((infra: any) => (
+            {analytics.map((infra: AnalyticsItem) => (
               <Card key={infra.id}>
                 <CardHeader>
                   <CardTitle className="text-lg">{infra.name} - Enrolled Students ({infra.enrolledStudents.length})</CardTitle>
@@ -162,7 +182,7 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-500">No enrolled students</p>
+                    <p className="text-white">No enrolled students</p>
                   )}
                 </CardContent>
               </Card>
@@ -172,7 +192,7 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
 
         <TabsContent value="ejected">
           <div className="space-y-4">
-            {analytics?.map((infra: any) => (
+            {analytics.map((infra: AnalyticsItem) => (
               infra.ejectedStudents.length > 0 && (
                 <Card key={infra.id}>
                   <CardHeader>

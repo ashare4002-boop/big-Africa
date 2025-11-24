@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/app/data/admin/require-admin";
 import { prisma } from "@/lib/db";
 import { ApiResponse } from "@/lib/type";
@@ -44,6 +45,8 @@ export async function createInfrastructure(
       };
     }
 
+    const courseId = data.courseId;
+
     await prisma.infrastructure.create({
       data: {
         name: validation.data.name,
@@ -61,6 +64,9 @@ export async function createInfrastructure(
         townId: validation.data.townId,
       },
     });
+
+    // Revalidate the infrastructure page to refresh list
+    revalidatePath(`/admin/courses/${courseId}/infrastructure`);
 
     return {
       status: "success",
@@ -124,6 +130,9 @@ export async function createTown(
       },
     });
 
+    // Revalidate the infrastructure page to refresh towns list
+    revalidatePath(`/admin/courses/${courseId}/infrastructure`);
+
     return {
       status: "success",
       message: "Town created successfully",
@@ -159,6 +168,143 @@ export async function updateInfrastructureStatus(
     return {
       status: "error",
       message: "Failed to update infrastructure status",
+      sound: "error",
+    };
+  }
+}
+
+export async function updateInfrastructure(
+  infrastructureId: string,
+  data: InfrastructureSchemaType & { tutorNames: string[] }
+): Promise<ApiResponse> {
+  const session = await requireAdmin();
+
+  try {
+    const req = await request();
+    const decision = await aj.protect(req, {
+      fingerprint: session.user.id,
+    });
+
+    if (decision.isDenied()) {
+      return {
+        status: "error",
+        message: "Rate limit exceeded",
+        sound: "info",
+      };
+    }
+
+    const validation = infrastructureSchema.safeParse(data);
+    if (!validation.success) {
+      return {
+        status: "error",
+        message: "Invalid form data",
+        sound: "info",
+      };
+    }
+
+    const infrastructure = await prisma.infrastructure.findUnique({
+      where: { id: infrastructureId },
+      include: { town: { include: { course: true } } },
+    });
+
+    await prisma.infrastructure.update({
+      where: { id: infrastructureId },
+      data: {
+        name: validation.data.name,
+        capacity: validation.data.capacity,
+        location: validation.data.location,
+        publicContact: validation.data.publicContact,
+        privateContact: validation.data.privateContact,
+        ownerPhoneNumber: validation.data.ownerPhoneNumber,
+        facilityImageKey: validation.data.facilityImageKey,
+        locationImageKey: validation.data.locationImageKey,
+        enrollmentDeadline: validation.data.enrollmentDeadline,
+        duration: validation.data.duration,
+        durationType: validation.data.durationType,
+        tutorNames: data.tutorNames,
+        townId: validation.data.townId,
+      },
+    });
+
+    // Revalidate the infrastructure page
+    if (infrastructure?.town?.course?.id) {
+      revalidatePath(`/admin/courses/${infrastructure.town.course.id}/infrastructure`);
+    }
+
+    return {
+      status: "success",
+      message: "Infrastructure updated successfully",
+      sound: "success",
+    };
+  } catch (error) {
+    logger.error({ err: error }, "Infrastructure update failed");
+    return {
+      status: "error",
+      message: "Failed to update infrastructure",
+      sound: "error",
+    };
+  }
+}
+
+export async function deleteInfrastructure(
+  infrastructureId: string
+): Promise<ApiResponse> {
+  const session = await requireAdmin();
+
+  try {
+    const req = await request();
+    const decision = await aj.protect(req, {
+      fingerprint: session.user.id,
+    });
+
+    if (decision.isDenied()) {
+      return {
+        status: "error",
+        message: "Rate limit exceeded",
+        sound: "info",
+      };
+    }
+
+    // Check if infrastructure has active enrollments
+    const enrollments = await prisma.enrollment.findFirst({
+      where: {
+        infrastructureId,
+        status: "Active",
+      },
+    });
+
+    if (enrollments) {
+      return {
+        status: "error",
+        message: "Cannot delete infrastructure with active enrollments",
+        sound: "info",
+      };
+    }
+
+    const infrastructure = await prisma.infrastructure.findUnique({
+      where: { id: infrastructureId },
+      include: { town: { include: { course: true } } },
+    });
+
+    await prisma.infrastructure.delete({
+      where: { id: infrastructureId },
+    });
+
+    // Revalidate the infrastructure page
+    if (infrastructure?.town?.course?.id) {
+      revalidatePath(`/admin/courses/${infrastructure.town.course.id}/infrastructure`);
+    }
+
+    return {
+      status: "success",
+      message: "Infrastructure deleted successfully",
+      sound: "success",
+    };
+  } catch (error) {
+    logger.error({ err: error }, "Infrastructure deletion failed");
+    return {
+      status: "error",
+      message: "Failed to delete infrastructure",
       sound: "error",
     };
   }

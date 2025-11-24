@@ -14,7 +14,7 @@ import { authClient } from "@/lib/auth-client";
 import { FcGoogle } from "react-icons/fc";
 import { toast } from "sonner";
 import { useState, useTransition } from "react";
-import { Loader, Loader2, Router, Send } from "lucide-react";
+import { Loader, Loader2, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export function LoginForm() {

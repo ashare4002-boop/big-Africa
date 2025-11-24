@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
-export async function GET(req: Request, context: { params: { type: string } }) {
+export async function GET(req: Request, context: { params: Promise<{ type: string }> }) {
   // Await params
   const params = await context.params;
   const { type } = params;

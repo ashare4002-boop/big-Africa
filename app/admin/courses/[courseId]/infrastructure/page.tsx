@@ -35,15 +35,15 @@ export default async function InfrastructureManagementPage({ params }: { params:
         <h1 className="text-3xl font-bold mb-2">
           Infrastructure Management: <span className="text-primary">{course.title}</span>
         </h1>
-        <p className="text-gray-600">Manage physical learning locations and student enrollments</p>
+        <p className="text-white">Manage physical learning locations and student enrollments</p>
       </div>
 
-      {(course as any).courseType === "INFRASTRUCTURE_BASE" ? (
+      {(course as { courseType?: string }).courseType === "INFRASTRUCTURE_BASE" ? (
         <>
           <AdminInfrastructureDashboard courseId={courseId} />
           <InfrastructureManagement
             courseId={courseId}
-            courseType={(course as any).courseType}
+            courseType={(course as { courseType?: string }).courseType || ""}
             infrastructures={infrastructures.map(i => ({
               id: i.id,
               name: i.name,
