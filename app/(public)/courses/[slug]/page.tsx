@@ -18,7 +18,7 @@ import {
   IconClock,
   IconPlayerPlay,
 } from "@tabler/icons-react";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, MapPin } from "lucide-react";
 import Image from "next/image";
 
 import { checkIfCourseBought } from "@/app/data/user/user-is-enroll";
@@ -63,10 +63,15 @@ export default async function SlugPage({ params }: { params: Params }) {
 
         <div className="mt-8 space-y-6">
           <div className="space-y-4">
-            <h1 className="text-3xl font-bold tracking-tight">
-              {" "}
-              {course.title}{" "}
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold tracking-tight">
+                {" "}
+                {course.title}{" "}
+              </h1>
+              {course.courseType === "INFRASTRUCTURE_BASE" && (
+                <Badge className="bg-purple-600">Infrastructure-Based</Badge>
+              )}
+            </div>
             <p className="text-lg text-muted-foreground leading-relaxed line-clamp-2">
               {" "}
               {course.smallDescription}{" "}
@@ -87,6 +92,64 @@ export default async function SlugPage({ params }: { params: Params }) {
               <span> {course.duration}hours </span>
             </Badge>
           </div>
+
+          <Separator className="my-8" />
+
+          {/* Infrastructure Info for Infrastructure-Based Courses */}
+          {course.courseType === "INFRASTRUCTURE_BASE" && course.towns && course.towns.length > 0 && (
+            <div className="space-y-6">
+              <h2 className="text-2xl font-semibold tracking-tight">Learning Centers</h2>
+              <div className="space-y-4">
+                {course.towns.map((town: any) => (
+                  <div key={town.id} className="space-y-3">
+                    <h3 className="text-lg font-semibold text-primary">{town.name}</h3>
+                    <div className="grid gap-4">
+                      {town.infrastructures.map((infra: any) => (
+                        <Card key={infra.id} className="overflow-hidden">
+                          <CardContent className="p-4">
+                            <div className="space-y-3">
+                              <div>
+                                <h4 className="font-semibold">{infra.name}</h4>
+                                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                                  <MapPin className="size-4" />
+                                  {infra.location}
+                                </p>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-3 text-sm">
+                                <div>
+                                  <p className="font-medium">Capacity</p>
+                                  <p className="text-muted-foreground">{infra.currentEnrollment}/{infra.capacity} enrolled</p>
+                                </div>
+                                {infra.enrollmentDeadline && (
+                                  <div>
+                                    <p className="font-medium">Enrollment Deadline</p>
+                                    <p className="text-muted-foreground">{new Date(infra.enrollmentDeadline).toLocaleDateString()}</p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {infra.tutorNames && infra.tutorNames.length > 0 && (
+                                <div>
+                                  <p className="font-medium text-sm">Instructors</p>
+                                  <p className="text-sm text-muted-foreground">{infra.tutorNames.join(", ")}</p>
+                                </div>
+                              )}
+
+                              <div className="text-sm">
+                                <p className="font-medium">Contact</p>
+                                <p className="text-muted-foreground">{infra.publicContact}</p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <Separator className="my-8" />
 
@@ -261,7 +324,14 @@ export default async function SlugPage({ params }: { params: Params }) {
                 {isEnrolled ? (
                   <Link className= {buttonVariants({ className :  "w-full" })} href="/dashboard">Start now</Link>
                 ) : (
-                  <EnrollmentButton courseId={course.id} />
+                  <EnrollmentButton 
+                    courseId={course.id}
+                    courseType={course.courseType}
+                    towns={course.courseType === "INFRASTRUCTURE_BASE" ? course.towns : undefined}
+                    courseTitle={course.title}
+                    coursePrice={course.price}
+                    courseDuration={course.duration}
+                  />
                 )}
               </div>
             </CardContent>

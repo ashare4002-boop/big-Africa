@@ -38,16 +38,22 @@ export async function createInfrastructure(
 
     const validation = infrastructureSchema.safeParse(data);
     if (!validation.success) {
+      const errors = validation.error.issues
+        .map(e => `${e.path.join('.')}: ${e.message}`)
+        .join('; ');
+      logger.error({ errors, receivedData: data }, "Infrastructure validation failed");
+      console.error("[Infrastructure Creation] Validation Error Details:", errors);
       return {
         status: "error",
-        message: "Invalid form data",
+        message: `Invalid form data: ${errors}`,
         sound: "info",
       };
     }
 
     const courseId = data.courseId;
 
-    await prisma.infrastructure.create({
+    try {
+      await prisma.infrastructure.create({
       data: {
         name: validation.data.name,
         capacity: validation.data.capacity,
@@ -65,16 +71,26 @@ export async function createInfrastructure(
       },
     });
 
-    // Revalidate the infrastructure page to refresh list
-    revalidatePath(`/admin/courses/${courseId}/infrastructure`);
+      // Revalidate the infrastructure page to refresh list
+      revalidatePath(`/admin/courses/${courseId}/infrastructure`);
 
-    return {
-      status: "success",
-      message: "Infrastructure created successfully",
-      sound: "success",
-    };
+      return {
+        status: "success",
+        message: "Infrastructure created successfully",
+        sound: "success",
+      };
+    } catch (dbError) {
+      logger.error({ err: dbError }, "Database error creating infrastructure");
+      console.error("[Infrastructure Creation] Database Error:", dbError);
+      return {
+        status: "error",
+        message: `Failed to create infrastructure: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`,
+        sound: "error",
+      };
+    }
   } catch (error) {
     logger.error({ err: error }, "Infrastructure creation failed");
+    console.error("[Infrastructure Creation] Unexpected Error:", error);
     return {
       status: "error",
       message: "Failed to create infrastructure",
@@ -195,9 +211,14 @@ export async function updateInfrastructure(
 
     const validation = infrastructureSchema.safeParse(data);
     if (!validation.success) {
+      const errors = validation.error.issues
+        .map(e => `${e.path.join('.')}: ${e.message}`)
+        .join('; ');
+      logger.error({ errors, receivedData: data }, "Infrastructure update validation failed");
+      console.error("[Infrastructure Update] Validation Error Details:", errors);
       return {
         status: "error",
-        message: "Invalid form data",
+        message: `Invalid form data: ${errors}`,
         sound: "info",
       };
     }
@@ -207,7 +228,8 @@ export async function updateInfrastructure(
       include: { town: { include: { course: true } } },
     });
 
-    await prisma.infrastructure.update({
+    try {
+      await prisma.infrastructure.update({
       where: { id: infrastructureId },
       data: {
         name: validation.data.name,
@@ -226,18 +248,28 @@ export async function updateInfrastructure(
       },
     });
 
-    // Revalidate the infrastructure page
-    if (infrastructure?.town?.course?.id) {
-      revalidatePath(`/admin/courses/${infrastructure.town.course.id}/infrastructure`);
-    }
+      // Revalidate the infrastructure page
+      if (infrastructure?.town?.course?.id) {
+        revalidatePath(`/admin/courses/${infrastructure.town.course.id}/infrastructure`);
+      }
 
-    return {
-      status: "success",
-      message: "Infrastructure updated successfully",
-      sound: "success",
-    };
+      return {
+        status: "success",
+        message: "Infrastructure updated successfully",
+        sound: "success",
+      };
+    } catch (dbError) {
+      logger.error({ err: dbError }, "Database error updating infrastructure");
+      console.error("[Infrastructure Update] Database Error:", dbError);
+      return {
+        status: "error",
+        message: `Failed to update infrastructure: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`,
+        sound: "error",
+      };
+    }
   } catch (error) {
     logger.error({ err: error }, "Infrastructure update failed");
+    console.error("[Infrastructure Update] Unexpected Error:", error);
     return {
       status: "error",
       message: "Failed to update infrastructure",

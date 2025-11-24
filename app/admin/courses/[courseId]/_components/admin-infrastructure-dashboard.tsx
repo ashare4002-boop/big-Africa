@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Unlock } from "lucide-react";
+import { AlertCircle, DollarSign, Unlock } from "lucide-react";
 import { getInfrastructureAnalytics } from "../actions/enrollment-actions";
 import { unlockUserForReEnrollment } from "../actions/enrollment-actions";
 import { toast } from "sonner";
@@ -73,7 +73,7 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-white">Total Capacity</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Total Capacity</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalCapacity}</div>
@@ -81,7 +81,7 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-white">Total Enrolled</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Total Enrolled</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalEnrolled}</div>
@@ -89,18 +89,18 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-white">Total Earnings</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Total Earnings</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-semibold flex items-center gap-10">
-              XAF 
+            <div className="text-2xl font-bold flex items-center gap-2">
+              <DollarSign className="w-5 h-5" />
               {totalEarnings.toFixed(2)}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-white">Available Spots</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Available Spots</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{Math.max(0, totalCapacity - totalEnrolled)}</div>
@@ -133,23 +133,23 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div>
-                      <p className="text-sm text-white">Capacity</p>
+                      <p className="text-sm text-gray-600">Capacity</p>
                       <p className="text-lg font-semibold">{infra.currentEnrollment}/{infra.capacity}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-white">Available</p>
+                      <p className="text-sm text-gray-600">Available</p>
                       <p className="text-lg font-semibold">{infra.availableSpots}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-white">Earnings</p>
-                      <p className="text-lg font-semibold">XAF{infra.totalEarnings.toFixed(2)}</p>
+                      <p className="text-sm text-gray-600">Earnings</p>
+                      <p className="text-lg font-semibold">${infra.totalEarnings.toFixed(2)}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-white">Owner Phone</p>
+                      <p className="text-sm text-gray-600">Owner Phone</p>
                       <p className="text-lg font-semibold">{infra.ownerPhoneNumber}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-white">Enrolled</p>
+                      <p className="text-sm text-gray-600">Enrolled</p>
                       <p className="text-lg font-semibold">{infra.activeEnrollmentsCount}</p>
                     </div>
                   </div>
@@ -182,7 +182,7 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
                       ))}
                     </div>
                   ) : (
-                    <p className="text-white">No enrolled students</p>
+                    <p className="text-gray-500">No enrolled students</p>
                   )}
                 </CardContent>
               </Card>

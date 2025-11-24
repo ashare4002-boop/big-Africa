@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import logger from "./logger";
+import * as notif from "./notifications"; 
 
 /**
  * Check if an infrastructure is locked (either manually or by deadline/capacity)
@@ -40,12 +41,11 @@ export async function isCourseLocked(courseId: string): Promise<boolean> {
   if (infrastructures.length === 0) return false;
 
   // All infrastructures must be locked
-  for (const infra of infrastructures) {
-    const locked = await isInfrastructureLocked(infra.id);
-    if (!locked) return false;
-  }
+  const lockStatuses = await Promise.all(
+    infrastructures.map(infra => isInfrastructureLocked(infra.id))
+  );
 
-  return true;
+  return lockStatuses.every(status => status === true);
 }
 
 /**
@@ -63,18 +63,20 @@ export async function getAvailableInfrastructures(courseId: string) {
     },
   });
 
-  const available = [];
-  for (const infra of infrastructures) {
-    const locked = await isInfrastructureLocked(infra.id);
-    if (!locked) {
-      available.push({
-        ...infra,
-        spotsRemaining: infra.capacity - infra.currentEnrollment,
-      });
-    }
-  }
+  // OPTIMIZATION: Check locks in parallel
+  const checks = await Promise.all(
+    infrastructures.map(async (infra) => {
+      const locked = await isInfrastructureLocked(infra.id);
+      return locked ? null : infra;
+    })
+  );
 
-  return available;
+  return checks
+    .filter((infra) => infra !== null)
+    .map((infra: any) => ({
+      ...infra,
+      spotsRemaining: infra.capacity - infra.currentEnrollment,
+    }));
 }
 
 /**
@@ -108,44 +110,54 @@ export function getDaysOverdue(nextPaymentDue: Date | null): number {
 
 /**
  * Eject user from infrastructure course for non-payment
+  
  */
-export async function ejectUserForNonPayment(enrollmentId: string): Promise<void> {
-  const enrollment = await prisma.enrollment.findUnique({
-    where: { id: enrollmentId },
-  });
+export async function ejectUserForNonPayment(enrollmentId: string, enrollmentData?: any): Promise<void> {
 
-  if (!enrollment) throw new Error("Enrollment not found");
-
-  const updatedEnrollment = await prisma.enrollment.update({
-    where: { id: enrollmentId },
-    data: {
-      isEjected: true,
-      ejectionCount: enrollment.ejectionCount + 1,
-      status: "Cancelled",
-    },
-    include: {
-      User: true,
-      infrastructure: true,
-    },
-  });
-
-  // Decrease infrastructure enrollment
-  if (enrollment.infrastructureId) {
-    await prisma.infrastructure.update({
-      where: { id: enrollment.infrastructureId },
-      data: {
-        currentEnrollment: {
-          decrement: 1,
-        },
-      },
+  let enrollment = enrollmentData;
+  if (!enrollment) {
+    enrollment = await prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      include: { User: true, infrastructure: true } 
     });
   }
 
-  // Send ejection notice
+  if (!enrollment) {
+    logger.warn({ enrollmentId }, "Attempted to eject non-existent enrollment");
+    return;
+  }
+
+
   try {
-    const notif = await import("./notifications");
+    const [updatedEnrollment] = await prisma.$transaction([
+      // Mise à jour de l'enrollment
+      prisma.enrollment.update({
+        where: { id: enrollmentId },
+        data: {
+          isEjected: true,
+          ejectionCount: (enrollment.ejectionCount || 0) + 1,
+          status: "Cancelled",
+        },
+        include: {
+          User: true,
+          infrastructure: true,
+        },
+      }),
+      // Decrement infrastructure enrollment (si applicable)
+      ...(enrollment.infrastructureId ? [
+        prisma.infrastructure.update({
+          where: { id: enrollment.infrastructureId },
+          data: {
+            currentEnrollment: { decrement: 1 },
+          },
+        })
+      ] : [])
+    ]);
+
+    
     const reEnrollmentDeadline = new Date();
     reEnrollmentDeadline.setDate(reEnrollmentDeadline.getDate() + 30);
+    
     
     await (notif as any).sendEjectionNotice((updatedEnrollment.User as any).email, {
       studentName: (updatedEnrollment.User as any).name || "Student",
@@ -154,8 +166,10 @@ export async function ejectUserForNonPayment(enrollmentId: string): Promise<void
       daysOverdue: getDaysOverdue(enrollment.nextPaymentDue),
       reEnrollmentDeadline,
     });
+
   } catch (error) {
-    logger.error({ err: error }, "Failed to send ejection notice");
+    logger.error({ err: error, enrollmentId }, "Failed to eject user or send notice");
+    throw error; 
   }
 }
 
@@ -170,23 +184,23 @@ export async function canUserReEnroll(enrollmentId: string): Promise<boolean> {
   if (!enrollment) return false;
   if (!enrollment.isEjected) return false;
 
-  // Check if ejection period exceeded (e.g., more than 30 days)
   const ejectionDate = enrollment.updatedAt;
   const daysEjected = Math.floor(
     (new Date().getTime() - ejectionDate.getTime()) / (1000 * 60 * 60 * 24)
   );
 
-  // Can re-enroll if less than 30 days ejected
   return daysEjected < 30;
 }
 
 /**
  * Process monthly subscription check (call via cron job)
+ * HIGHLY OPTIMIZED VERSION
  */
 export async function processMonthlySubscriptionCheck(): Promise<void> {
   const now = new Date();
+  logger.info("Starting monthly subscription check...");
 
-  // Find all infrastructure-based enrollments that are overdue
+  // 1. Fetch all overdue enrollments at once
   const overdueEnrollments = await prisma.enrollment.findMany({
     where: {
       isEjected: false,
@@ -204,10 +218,22 @@ export async function processMonthlySubscriptionCheck(): Promise<void> {
     },
   });
 
-  for (const enrollment of overdueEnrollments) {
-    await ejectUserForNonPayment(enrollment.id);
+  logger.info({ count: overdueEnrollments.length }, "Found overdue enrollments to process");
 
-    // TODO: Send notification to infrastructure owner
-    // sendNotificationToOwner(enrollment.infrastructure.ownerPhoneNumber, ...)
+  if (overdueEnrollments.length === 0) return;
+
+  // 2. Eject users in parallel
+  const results = await Promise.allSettled(
+    overdueEnrollments.map((enrollment) => 
+      ejectUserForNonPayment(enrollment.id, enrollment)
+    )
+  );
+
+  // 3. Log results
+  const rejected = results.filter(r => r.status === 'rejected');
+  if (rejected.length > 0) {
+    logger.error({ errorCount: rejected.length }, "Some ejections failed during cron job");
+  } else {
+    logger.info("All overdue enrollments processed successfully");
   }
 }

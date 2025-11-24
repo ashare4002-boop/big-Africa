@@ -81,21 +81,42 @@ export async function POST(req: Request) {
       const failedStatuses = ["FAILED", "CANCELED", "CANCELLED", "DECLINED"];
 
       if (successStatuses.includes(statusUpper)) {
+        // Calculate next payment due (30 days from now)
+        const nextPaymentDue = new Date();
+        nextPaymentDue.setDate(nextPaymentDue.getDate() + 30);
+
         const updatedEnrollment = await prisma.enrollment.update({
           where: { id: enrollment.id },
           data: {
             status: "Active", // Matches your schema Enum
             paidAt: new Date(),
+            nextPaymentDue: nextPaymentDue,
             rawResponse: payment,
           },
           include: {
             User: true,
             Course: true,
-            infrastructure: true,
+            infrastructure: {
+              include: {
+                town: true,
+              },
+            },
           },
         });
 
-        // Send payment receipt email
+        // Increment infrastructure current enrollment if infrastructure-based course
+        if (updatedEnrollment.infrastructure) {
+          await prisma.infrastructure.update({
+            where: { id: updatedEnrollment.infrastructure.id },
+            data: {
+              currentEnrollment: {
+                increment: 1,
+              },
+            },
+          });
+        }
+
+        // Send payment receipt email to student
         try {
           const notif = await import("@/lib/notifications");
           const user = (updatedEnrollment.User as any);
@@ -107,10 +128,42 @@ export async function POST(req: Request) {
             amount: enrollment.amount,
             transactionId: payment.id,
             paymentDate: new Date(),
-            nextPaymentDue: updatedEnrollment.nextPaymentDue || new Date(),
+            nextPaymentDue: nextPaymentDue,
           });
         } catch (error) {
           logger.error({ err: error, enrollmentId: enrollment.id }, "Failed to send payment receipt email");
+        }
+
+        // Send notification to infrastructure owner if infrastructure-based course
+        if (updatedEnrollment.infrastructure) {
+          try {
+            const notif = await import("@/lib/notifications");
+            const infra = updatedEnrollment.infrastructure as any;
+            const user = (updatedEnrollment.User as any);
+            const course = (updatedEnrollment.Course as any);
+            const town = (infra.town as any);
+            
+            // Get current enrollment count and earnings
+            const totalEnrolled = await prisma.infrastructure.findUnique({
+              where: { id: infra.id },
+              select: { currentEnrollment: true },
+            });
+
+            const message = `New enrollment confirmed! ${user?.name || 'A student'} has completed payment for ${course?.title}. 
+Your infrastructure now has ${totalEnrolled?.currentEnrollment || 0} students. 
+Monthly earnings: XAF ${((totalEnrolled?.currentEnrollment || 0) * enrollment.amount).toLocaleString()}`;
+            
+            await (notif as any).sendInfrastructureOwnerNotification(infra.publicContact, {
+              studentName: user?.name || "Student",
+              studentEmail: user?.email || "N/A",
+              courseName: course?.title,
+              infrastructureName: infra.name,
+              town: town?.name || "N/A",
+              monthlyFee: enrollment.amount,
+            });
+          } catch (error) {
+            logger.error({ err: error, enrollmentId: enrollment.id }, "Failed to send infrastructure owner notification");
+          }
         }
 
         logger.info({ enrollmentId: enrollment.id }, "Enrollment activated after payment");

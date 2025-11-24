@@ -16,11 +16,57 @@ import { toastWithSound } from "@/utils/toastWithSound";
 import { Loader2, Phone } from "lucide-react";
 import { useState, useTransition } from "react";
 import { enrollInCourseAction } from "../actions";
+import { InfrastructureSelection } from "@/components/enrollment/infrastructure-selection";
 
-export function EnrollmentButton({ courseId }: { courseId: string }) {
+// Import types from infrastructure-selection component
+type Town = {
+  id: string;
+  name: string;
+  infrastructures: Array<{
+    id: string;
+    name: string;
+    capacity: number;
+    currentEnrollment: number;
+    location: string;
+    publicContact: string;
+    facilityImageKey: string;
+    locationImageKey: string;
+    enrollmentDeadline?: string;
+    tutorNames: string[];
+    openTime?: string;
+    closeTime?: string;
+  }>;
+};
+
+export function EnrollmentButton({ 
+  courseId, 
+  courseType,
+  towns,
+  courseTitle,
+  coursePrice,
+  courseDuration,
+}: { 
+  courseId: string;
+  courseType?: string;
+  towns?: Town[];
+  courseTitle?: string;
+  coursePrice?: number;
+  courseDuration?: number;
+}) {
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [step, setStep] = useState<"infrastructure" | "payment">("infrastructure"); // For infrastructure courses
+  const [selectedInfrastructureId, setSelectedInfrastructureId] = useState<string>("");
+  const [selectedTownId, setSelectedTownId] = useState<string>("");
+
+  const isInfrastructureCourse = courseType === "INFRASTRUCTURE_BASE";
+
+  const handleInfrastructureSelect = async (infrastructureId: string, townId: string) => {
+    setSelectedInfrastructureId(infrastructureId);
+    setSelectedTownId(townId);
+    setStep("payment");
+  };
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,7 +83,7 @@ export function EnrollmentButton({ courseId }: { courseId: string }) {
 
     startTransition(async () => {
       const { data: result, error } = await tryCatch(
-        enrollInCourseAction(courseId, cleanedPhone)
+        enrollInCourseAction(courseId, cleanedPhone, selectedInfrastructureId || undefined, selectedTownId || undefined)
       );
 
       if (error) {
@@ -52,6 +98,9 @@ export function EnrollmentButton({ courseId }: { courseId: string }) {
         toastWithSound(result.sound || "success", result.message);
         setOpen(false);
         setPhoneNumber("");
+        setSelectedInfrastructureId("");
+        setSelectedTownId("");
+        setStep("infrastructure");
         // Redirect to payment success page with paymentId
         if (result.data?.paymentId) {
           window.location.href = `/payments/success?paymentId=${result.data.paymentId}`;
@@ -66,50 +115,147 @@ export function EnrollmentButton({ courseId }: { courseId: string }) {
     });
   }
 
+  const monthlyPayment = isInfrastructureCourse && coursePrice && courseDuration ? 
+    Math.ceil(coursePrice / courseDuration) : coursePrice;
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(newOpen) => {
+      setOpen(newOpen);
+      if (!newOpen) {
+        setStep("infrastructure");
+        setSelectedInfrastructureId("");
+        setSelectedTownId("");
+        setPhoneNumber("");
+      }
+    }}>
       <DialogTrigger asChild>
         <Button className="w-full">Enroll Now</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Complete Your Enrollment</DialogTitle>
-          <DialogDescription>
-            Enter your mobile money phone number to pay for this course. You&apos;ll
-            receive a prompt on your phone to authorize the payment.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="phone">Mobile Money Number</Label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="237 6XX XXX XXX"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                className="pl-10"
-                disabled={pending}
-                required
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              MTN: 237 67X XXX XXX | Orange: 237 69X XXX XXX
-            </p>
-          </div>
-          <Button type="submit" disabled={pending} className="w-full">
-            {pending ? (
+      <DialogContent className={isInfrastructureCourse && step === "infrastructure" ? "sm:max-w-2xl" : "sm:max-w-md"}>
+        {isInfrastructureCourse ? (
+          <>
+            {step === "infrastructure" && towns && towns.length > 0 ? (
               <>
-                <Loader2 className="size-4 animate-spin mr-2" />
-                Processing Payment...
+                <DialogHeader>
+                  <DialogTitle>Select Your Learning Center</DialogTitle>
+                  <DialogDescription>
+                    Choose a town and learning center that works best for you.
+                  </DialogDescription>
+                </DialogHeader>
+                <InfrastructureSelection
+                  towns={towns}
+                  courseTitle={courseTitle || "this course"}
+                  onSelect={handleInfrastructureSelect}
+                />
               </>
-            ) : (
-              "Proceed to Payment"
-            )}
-          </Button>
-        </form>
+            ) : step === "infrastructure" ? (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Loading Learning Centers...</DialogTitle>
+                </DialogHeader>
+              </>
+            ) : step === "payment" ? (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Complete Your Payment</DialogTitle>
+                  <DialogDescription>
+                    Monthly payment of {new Intl.NumberFormat("en-US", {
+                      style: "currency",
+                      currency: "XAF",
+                    }).format(monthlyPayment || 0)} is required to continue with your enrollment.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={onSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Mobile Money Number</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="237 6XX XXX XXX"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      className="pl-10"
+                      disabled={pending}
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    MTN: 237 67X XXX XXX | Orange: 237 69X XXX XXX
+                  </p>
+                </div>
+                <div className="bg-blue-50 p-3 rounded border-l-4 border-blue-400 text-sm">
+                  <p className="font-semibold text-blue-900">💳 Monthly Subscription</p>
+                  <p className="text-blue-800 mt-1">You will be charged {new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency: "XAF",
+                  }).format(monthlyPayment || 0)} each month</p>
+                </div>
+                <Button type="submit" disabled={pending} className="w-full">
+                  {pending ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin mr-2" />
+                      Processing Payment...
+                    </>
+                  ) : (
+                    "Proceed to Payment"
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setStep("infrastructure")}
+                  className="w-full"
+                >
+                  Back to Infrastructure Selection
+                </Button>
+              </form>
+              </>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>Complete Your Enrollment</DialogTitle>
+              <DialogDescription>
+                Enter your mobile money phone number to pay for this course. You&apos;ll
+                receive a prompt on your phone to authorize the payment.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={onSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Mobile Money Number</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="237 6XX XXX XXX"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    className="pl-10"
+                    disabled={pending}
+                    required
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  MTN: 237 67X XXX XXX | Orange: 237 69X XXX XXX
+                </p>
+              </div>
+              <Button type="submit" disabled={pending} className="w-full">
+                {pending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin mr-2" />
+                    Processing Payment...
+                  </>
+                ) : (
+                  "Proceed to Payment"
+                )}
+              </Button>
+            </form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

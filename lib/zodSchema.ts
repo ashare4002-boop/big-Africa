@@ -104,9 +104,16 @@ export const infrastructureSchema = z.object({
   location: z.string().min(3, { message: "Location is required" }),
   publicContact: z.string().email({ message: "Valid public email is required" }),
   privateContact: z.string().email({ message: "Valid private email is required" }),
-  ownerPhoneNumber: z.string().regex(/^(\+237|237|^[67])\d{8}$/, {
-    message: "Valid Cameroon phone number (MTN/Orange) is required",
-  }),
+  ownerPhoneNumber: z
+    .string()
+    .transform((s) => s.replace(/\s+/g, ""))
+    .pipe(
+      z
+        .string()
+        .regex(/^(\+237|237)?[67]\d{8}$/,{
+          message: "Valid Cameroon phone number (MTN/Orange) is required",
+        })
+    ),
   facilityImageKey: z.string().min(1, { message: "Facility image is required" }),
   locationImageKey: z.string().min(1, { message: "Location image is required" }),
   enrollmentDeadline: z.coerce.date().min(new Date(), { message: "Enrollment deadline must be in the future" }),

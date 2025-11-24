@@ -25,6 +25,9 @@ import { useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Uploader } from "@/components/file-uploader/Uploader";
+import pino from "pino";
+
+const logger = pino();
 
 interface InfrastructureFormProps {
   courseId: string;
@@ -44,8 +47,11 @@ export function InfrastructureForm({
   const [isLoading, setIsLoading] = useState(false);
   const [tutors, setTutors] = useState<string[]>(initialData?.tutorNames || [""]); 
 
+  // Create a schema without tutorNames validation (since tutors are managed separately)
+  const formSchema = infrastructureSchema.omit({ tutorNames: true });
+  
   const form = useForm({
-    resolver: zodResolver(infrastructureSchema) as any,
+    resolver: zodResolver(formSchema) as any,
     defaultValues: initialData || {
       name: "",
       capacity: 1,
@@ -57,66 +63,92 @@ export function InfrastructureForm({
       locationImageKey: "",
       durationType: "MONTHS",
       duration: 1,
-      tutorNames: [],
       townId: "",
     },
   });
 
   const onSubmit = async (values: any) => {
+    logger.info({ values }, "[DEBUG] ✅ FORM SUBMITTED!");
+    
     // Validate tutors
     const validTutors = tutors.filter(t => t.trim());
     if (validTutors.length === 0) {
+      logger.warn("[DEBUG] ❌ No tutors provided");
       toast.error("Please add at least one tutor");
       return;
     }
 
     // Validate images
-    if (!values.facilityImageKey || !values.facilityImageKey.trim()) {
+    if (!values.facilityImageKey?.trim()) {
+      logger.warn("[DEBUG] ❌ No facility image");
       toast.error("Please upload a facility image");
       return;
     }
 
-    if (!values.locationImageKey || !values.locationImageKey.trim()) {
+    if (!values.locationImageKey?.trim()) {
+      logger.warn("[DEBUG] ❌ No location image");
       toast.error("Please upload a location image");
       return;
     }
 
+    logger.info("[DEBUG] ✅ All client validations passed");
     setIsLoading(true);
+    
     try {
       const payload = {
         ...values,
         tutorNames: validTutors,
       };
 
+      logger.info({ payload }, "[DEBUG] 📤 Sending payload to server");
+
       let result;
       if (editingId) {
+        logger.info("[DEBUG] 🔄 Calling updateInfrastructure...");
         result = await updateInfrastructure(editingId, payload);
       } else {
+        logger.info("[DEBUG] ➕ Calling createInfrastructure...");
         result = await createInfrastructure({
           ...payload,
           courseId,
         });
       }
 
+      logger.info({ result }, "[DEBUG] 📥 Server response");
+
       if (result.status === "success") {
+        logger.info("[DEBUG] ✅ SUCCESS!");
         toast.success(result.message);
         form.reset();
         setTutors([""]);
         onSuccess?.();
       } else {
+        logger.error({ message: result.message }, "[DEBUG] ❌ Server error");
         toast.error(result.message || "Failed to save infrastructure");
       }
     } catch (error) {
-      console.error("Form submission error:", error);
+      logger.error({ error }, "[DEBUG] ❌ Unexpected error");
       toast.error(`Failed to ${editingId ? 'update' : 'create'} infrastructure`);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const onInvalid = (errors: any) => {
+    logger.error({ errors }, "[DEBUG] Form validation failed");
+    const errorFields = Object.keys(errors);
+    if (errorFields.length > 0) {
+      const firstError = errors[errorFields[0]];
+      logger.error({ field: errorFields[0], error: firstError }, "[DEBUG] First validation error");
+      toast.error(`Validation error: ${errorFields[0]} - ${firstError?.message || 'Invalid field'}`);
+    } else {
+      toast.error("Please fix the highlighted fields and try again");
+    }
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit as any, onInvalid)} className="space-y-4">
         <FormField
           control={form.control as any}
           name="name"
@@ -275,10 +307,28 @@ export function InfrastructureForm({
           control={form.control as any}
           name="enrollmentDeadline"
           render={({ field }) => (
-            <FormItem>
+            <FormItem suppressHydrationWarning>
               <FormLabel>Enrollment Deadline</FormLabel>
-              <FormControl>
-                <Input type="datetime-local" {...field} value={field.value ? new Date(field.value).toISOString().slice(0, 16) : ""} />
+              <FormControl suppressHydrationWarning>
+                <Input 
+                  type="datetime-local" 
+                  value={field.value instanceof Date ? field.value.toISOString().slice(0, 16) : (field.value || "")}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    console.log("[DEBUG] DateTime changed to:", value);
+                    if (value) {
+                      try {
+                        const date = new Date(value);
+                        console.log("[DEBUG] Converted to Date:", date);
+                        field.onChange(date);
+                      } catch (err) {
+                        console.error("[DEBUG] Date conversion error:", err);
+                      }
+                    } else {
+                      field.onChange(null);
+                    }
+                  }}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

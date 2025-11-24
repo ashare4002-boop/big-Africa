@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { MapPin, Users, Clock, AlertCircle } from "lucide-react";
 
 interface Infrastructure {
@@ -192,30 +192,30 @@ export function InfrastructureSelection({
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Your Enrollment</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3 pt-4">
-              <div className="space-y-2">
-                <p className="font-medium">You are enrolling in:</p>
-                <div className="bg-blue-50 p-3 rounded space-y-1 border-l-4 border-blue-400">
-                  <p className="font-semibold">{selectedTown?.name} - {selectedInfra?.name}</p>
-                  <p className="text-sm text-gray-700">📍 {selectedInfra?.location}</p>
-                </div>
-              </div>
-              
-              <div className="bg-orange-50 p-3 rounded border-l-4 border-orange-400 space-y-2">
-                <p className="font-semibold text-orange-900">⚠️ Important Terms:</p>
-                <ul className="text-sm text-orange-800 space-y-1 list-disc list-inside">
-                  <li><strong>Non-Refundable:</strong> Payments cannot be refunded once confirmed</li>
-                  <li><strong>Location Locked:</strong> You cannot change learning centers after enrollment</li>
-                  <li><strong>Monthly Subscription:</strong> Recurring payment required each month</li>
-                  <li><strong>Non-Payment Consequence:</strong> Ejection from course after 30 days overdue</li>
-                </ul>
-              </div>
-
-              <p className="text-sm text-gray-600">
-                By confirming, you agree to these terms. If you have questions, contact support@a-share.dev
-              </p>
-            </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-3 pt-4">
+            <div className="space-y-2">
+              <div className="font-medium">You are enrolling in:</div>
+              <div className="bg-blue-50 p-3 rounded space-y-1 border-l-4 border-blue-400">
+                <div className="font-semibold">{selectedTown?.name} - {selectedInfra?.name}</div>
+                <div className="text-sm text-gray-700">📍 {selectedInfra?.location}</div>
+              </div>
+            </div>
+            
+            <div className="bg-orange-50 p-3 rounded border-l-4 border-orange-400 space-y-2">
+              <div className="font-semibold text-orange-900">⚠️ Important Terms:</div>
+              <ul className="text-sm text-orange-800 space-y-1 list-disc list-inside">
+                <li><strong>Non-Refundable:</strong> Payments cannot be refunded once confirmed</li>
+                <li><strong>Location Locked:</strong> You cannot change learning centers after enrollment</li>
+                <li><strong>Monthly Subscription:</strong> Recurring payment required each month</li>
+                <li><strong>Non-Payment Consequence:</strong> Ejection from course after 30 days overdue</li>
+              </ul>
+            </div>
+
+            <div className="text-sm text-gray-600">
+              By confirming, you agree to these terms. If you have questions, contact support@a-share.dev
+            </div>
+          </div>
           <div className="flex gap-3 pt-4">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
