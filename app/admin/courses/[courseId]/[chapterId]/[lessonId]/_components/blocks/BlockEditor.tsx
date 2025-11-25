@@ -15,7 +15,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useState, useEffect } from "react";
+import { useState} from "react";
 import { BlockType, LessonBlock, BlockData } from "@/lib/blockTypes";
 import { SortableBlockItem } from "./SortableBlockItem";
 import { Button } from "@/components/ui/button";

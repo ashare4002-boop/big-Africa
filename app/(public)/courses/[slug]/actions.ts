@@ -170,10 +170,7 @@ export async function enrollInCourseAction(
       },
     });
 
-    // NOTE: Do NOT send student confirmation email here. For infrastructure-based courses,
-    // only the payment receipt email should be sent after successful payment via webhook.
-    // This prevents double-payment issues if students click "Complete Payment" in the confirmation email.
-    // The payment receipt (sendPaymentReceipt) is sent after NKWA webhook confirms successful payment.
+  
 
     return {
       status: "success",

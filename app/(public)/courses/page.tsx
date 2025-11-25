@@ -6,7 +6,7 @@ import {
 import { Suspense } from "react";
 
 
-// Look if it is tracking tight or tighter....
+
 
 
 export default function PublicCoursesroute() {

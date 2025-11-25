@@ -19,7 +19,6 @@ import {
   Pencil,
   School,
   TimerIcon,
-  Trash,
   Trash2,
 } from "lucide-react";
 import Image from "next/image";

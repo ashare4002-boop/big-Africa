@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+
 // use public/asset path for logo
 
 export default function AuthLayout({ children }: { children: ReactNode }) {

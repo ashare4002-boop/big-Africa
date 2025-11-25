@@ -8,7 +8,6 @@ import  {
   type SlidingWindowRateLimitOptions,
   detectBot,
   protectSignup,
-  shield,
   slidingWindow,
 } from "@arcjet/next";
 import { toNextJsHandler } from "better-auth/next-js";
@@ -19,7 +18,11 @@ import  arcjet  from "@/lib/arcjet";
 
 
 const emailOptions = {
-  mode: "LIVE", // will block requests. Use "DRY_RUN" to log only
+  
+  // will block requests. Use "DRY_RUN" to log only
+  mode: "LIVE", 
+
+
   // Block emails that are disposable, invalid, or have no MX records
   block: ["DISPOSABLE", "INVALID", "NO_MX_RECORDS"],
 } satisfies EmailOptions;

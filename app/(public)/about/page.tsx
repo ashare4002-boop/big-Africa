@@ -153,7 +153,7 @@ export default function AboutPage() {
                 icon: <Users className="w-6 h-6" />,
               },
             ].map((item, index) => (
-              <FadeInOnScroll key={index} delay={index * 150}>
+              <FadeInOnScroll key={index} delay={index * 200}>
                 <Card className="border-border/50 bg-background">
                   <CardHeader>
                     <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-3">
@@ -208,12 +208,12 @@ export default function AboutPage() {
                 description: "Transform existing community spaces into modern learning hubs without million-dollar construction budgets.",
                 fullDescription: "Building new educational facilities costs $100,000-500,000 per center and takes years. We've pioneered a different approach: partnering with existing community infrastructure.",
                 howItWorks: [
-                  "We identify underutilized spaces in towns across Cameroon—cybercafés, community centers, libraries, religious spaces",
-                  "We evaluate their potential (internet connectivity, basic equipment, space for 15-30 learners)",
+                  "We identify underutilized spaces in towns across Cameroon—cybercafés, community centers, libraries, religious spaces and more",
+                  "We evaluate their potential (internet connectivity, basic equipment, space for 10+ learners)",
                   "We establish formal partnerships with owners, creating revenue-sharing agreements",
                   "Minimal renovations transform these spaces into fully functional learning centers",
                 ],
-                example: "In Edea, a town with 500 people interested in cybersecurity training: we partner with 5 local cybercafés. Each trains 100 learners in rotating groups. At 20,000 FCFA per person, that's 10 million FCFA in economic activity—with revenue shared to infrastructure partners and A-Share.",
+                
                 benefits: [
                   "Deploy 10x faster than traditional models",
                   "Reduce capital costs by 90%+",
@@ -286,7 +286,7 @@ export default function AboutPage() {
                 icon: <Users className="w-6 h-6" />,
               },
             ].map((pillar, index) => (
-              <FadeInOnScroll key={index} delay={index * 200}>
+              <FadeInOnScroll key={index} delay={index * 300}>
                 <div className="border-l-4 border-primary pl-8 space-y-6">
                   <div className="flex items-start gap-4">
                     <span className="text-5xl font-bold text-primary/20 flex-shrink-0">{pillar.number}</span>
@@ -315,10 +315,7 @@ export default function AboutPage() {
                         </ul>
                       </div>
 
-                      <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
-                        <p className="font-semibold text-foreground mb-2">Real example:</p>
-                        <p className="text-muted-foreground">{pillar.example}</p>
-                      </div>
+                      
 
                       <div>
                         <p className="font-semibold text-foreground mb-2">Key benefits:</p>
@@ -385,7 +382,7 @@ export default function AboutPage() {
                 example: "A fintech startup partners with A-Share, provides internships, co-certifies curriculum, and hires graduates who are already productive on day one.",
               },
             ].map((group, index) => (
-              <FadeInOnScroll key={index} delay={index * 150}>
+              <FadeInOnScroll key={index} delay={index * 200}>
                 <Card className="border-border/50 bg-background">
                   <CardHeader>
                     <CardTitle className="text-lg">{group.title}</CardTitle>
