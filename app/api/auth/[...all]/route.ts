@@ -18,11 +18,7 @@ import  arcjet  from "@/lib/arcjet";
 
 
 const emailOptions = {
-  
-  // will block requests. Use "DRY_RUN" to log only
-  mode: "LIVE", 
-
-
+  mode: "LIVE", // will block requests. Use "DRY_RUN" to log only
   // Block emails that are disposable, invalid, or have no MX records
   block: ["DISPOSABLE", "INVALID", "NO_MX_RECORDS"],
 } satisfies EmailOptions;
@@ -97,8 +93,6 @@ export const { GET } = authHandlers;
 // Wrap the POST handler with Arcjet protections
 export const POST = async (req: NextRequest) => {
   const decision = await protect(req);
-
-  console.log("Arcjet Decision:", decision);
 
   if (decision.isDenied()) {
     if (decision.reason.isRateLimit()) {

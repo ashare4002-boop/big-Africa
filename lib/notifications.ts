@@ -106,6 +106,54 @@ export async function sendPaymentReceipt(
 }
 
 /**
+ * Send payment due warning email to student (3 days before payment due)
+ */
+export async function sendPaymentDueWarning(
+  studentEmail: string,
+  data: {
+    studentName: string;
+    courseName: string;
+    infrastructureName: string;
+    daysRemaining: number;
+    amountDue: number;
+    paymentLink: string;
+  }
+) {
+  try {
+    await resend.emails.send({
+      from: "noreply@resend.dev",
+      to: studentEmail,
+      subject: `Reminder: Your subscription payment is due in ${data.daysRemaining} day(s) - ${data.courseName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Payment Reminder</h2>
+          <p>Hello ${data.studentName},</p>
+          <p>This is a friendly reminder that your monthly subscription payment for <strong>${data.courseName}</strong> is due soon.</p>
+          <div style="background: #e8f4f8; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #17a2b8;">
+            <p><strong>Course:</strong> ${data.courseName}</p>
+            <p><strong>Learning Center:</strong> ${data.infrastructureName}</p>
+            <p><strong>Amount Due:</strong> XAF ${data.amountDue.toLocaleString()}</p>
+            <p><strong>Days Remaining:</strong> <span style="font-weight: bold; color: #17a2b8;">${data.daysRemaining} day(s)</span></p>
+          </div>
+          <p><strong>Action Required:</strong> Please complete your payment before the due date to avoid enrollment suspension.</p>
+          <a href="${data.paymentLink}" style="display: inline-block; background: #17a2b8; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 20px 0;">
+            Pay Now
+          </a>
+          <p style="font-size: 12px; color: #666; margin-top: 20px;">
+            If you do not pay by the due date, your enrollment will be automatically suspended. You can re-enroll within 30 days of suspension.
+          </p>
+          ${SUPPORT_FOOTER}
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    logger.error({ err: error }, "Failed to send payment due warning");
+    return { success: false, error };
+  }
+}
+
+/**
  * Send ejection notice to student for non-payment
  */
 export async function sendEjectionNotice(

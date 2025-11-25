@@ -27,6 +27,7 @@ model User {
   accounts      Account[]
   courses       Course[]
   enrollment    Enrollment[]
+  notifications Notification[]
 
   nkwaCustomerId String? @unique
 
@@ -35,6 +36,11 @@ model User {
   banExpires DateTime?
 
   role String?
+
+  // Platform-wide monthly subscription (1000 XAF/month)
+  trialStartedAt         DateTime?  // When user started their 7-day trial
+  monthlySubscriptionPaidUntil DateTime? // When their current monthly subscription expires
+  hasAcceptedTrial       Boolean    @default(false) // Tracks if user started trial from landing page
 
   @@unique([email])
   @@map("user")
@@ -271,7 +277,7 @@ model Enrollment {
   isEjected    Boolean  @default(false)
   ejectionCount Int     @default(0)
   canReEnroll   Boolean  @default(false) // true if user was ejected and can reclaim their spot
-
+  warningEmailSent Boolean @default(false) // track if 3-day pre-expiration warning was sent
 
 }
 
@@ -305,4 +311,32 @@ enum LessonBlockType {
   VIDEO
   QUIZ
   FILE
+}
+
+enum NotificationType {
+  PAYMENT_WARNING
+  SUBSCRIPTION_WARNING
+  EJECTION
+  PAYMENT_RECEIVED
+}
+
+model Notification {
+  id String @id @default(uuid())
+  
+  type NotificationType
+  title String
+  message String
+  daysRemaining Int?
+  amountDue Int?
+  enrollmentId String?
+  read Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  
+  @@index([userId])
+  @@index([read])
 }

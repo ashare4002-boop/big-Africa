@@ -1,20 +1,27 @@
 import { prisma } from "@/lib/db";
 import { headers } from "next/headers";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { createVerify } from "crypto";
 import { env } from "@/lib/env";
 import logger from "@/lib/logger";
+import { processMonthlySubscriptionPayment } from "@/lib/subscription-utils";
 
-export async function POST(req: Request) {
+/**
+ * UNIFIED NKWA WEBHOOK HANDLER
+ * 
+ * This single endpoint handles BOTH:
+ * 1. Infrastructure-based course payments (reference: INFRASTRUCTURE_BASED_*)
+ * 2. Platform subscription payments (reference: MONTHLY_SUB_*)
+ * 
+ * Configure ONLY this URL in NKWA dashboard: /api/webhook/nkwa
+ */
+export async function POST(req: NextRequest) {
   try {
     const headersList = await headers();
-    
-    // 1. Get Headers (Case-insensitive handling)
+
+    // 1. Get NKWA Webhook Headers
     const signature = headersList.get("x-sig") || headersList.get("x-signature");
     const timestamp = headersList.get("x-timestamp") || headersList.get("date");
-
-    // Debug log to help trace what arrives
-    logger.debug({ timestamp, signaturePresent: !!signature }, "Webhook received");
 
     if (!signature || !timestamp) {
       logger.error({ headers: Object.fromEntries(headersList.entries()) }, "Missing NKWA webhook headers");
@@ -24,24 +31,21 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Get Raw Body (Must be text for crypto verification)
+    // 2. Get Raw Body (Must be text for RSA-SHA256 verification)
     const body = await req.text();
 
-    // 3. Dynamic URL Construction
-    // This ensures the verification URL matches exactly what Nkwa sent (https vs http, ngrok vs localhost)
-    const host = headersList.get("host"); 
-    const protocol = headersList.get("x-forwarded-proto") || "https"; 
+    // 3. Dynamic URL Construction (handle https/http, proxies, etc)
+    const host = headersList.get("host");
+    const protocol = headersList.get("x-forwarded-proto") || "https";
     const callbackUrl = `${protocol}://${host}/api/webhook/nkwa`;
 
-    // 4. Reconstruct the Message: Timestamp + URL + Body
+    // 4. Reconstruct the Message for Verification
     const message = `${timestamp}${callbackUrl}${body}`;
 
-    // 5. Verify Signature
+    // 5. Verify RSA-SHA256 Signature
     let publicKey = env.NKWA_PUBLIC_KEY;
     if (publicKey) {
-      // CRITICAL FIX: Handle .env newline formatting issues
       publicKey = publicKey.replace(/\\n/g, "\n");
-      
       const isValid = verifyWebhookSignature(publicKey, message, signature);
 
       if (!isValid) {
@@ -50,36 +54,110 @@ export async function POST(req: Request) {
       }
     }
 
-    // 6. Parse Body & Process Payment
+    // 6. Parse Payment Data
     const payment = JSON.parse(body);
 
     if (!payment.id) {
+      logger.warn("Missing payment ID in webhook");
       return NextResponse.json({ error: "Payment ID required" }, { status: 400 });
     }
 
-    // Log the actual status received
-    logger.info({ paymentId: payment.id, paymentStatus: payment.status }, "Payment webhook received");
+    logger.info({ paymentId: payment.id, status: payment.status, reference: payment.reference }, "NKWA webhook received");
 
+    // 7. ROUTE based on payment reference type
+    const reference = payment.reference || "";
+
+    if (reference.startsWith("MONTHLY_SUB_")) {
+      //  Route to subscription handler
+      return await handleSubscriptionPayment(payment);
+    } else if (reference.startsWith("INFRASTRUCTURE_BASED_") || reference.includes("_COURSE_")) {
+      //  Route to infrastructure handler
+      return await handleInfrastructurePayment(payment);
+    } else {
+      logger.warn({ reference, paymentId: payment.id }, "Unknown payment reference format");
+      return NextResponse.json({ received: true }, { status: 200 });
+    }
+  } catch (error) {
+    logger.error({ err: error }, "Webhook processing error");
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
+/**
+ * Handle platform subscription payments (monthly)
+ */
+async function handleSubscriptionPayment(payment: any) {
+  try {
+    const reference = payment.reference || "";
+    const statusUpper = payment.status?.toUpperCase();
+    const successStatuses = ["SUCCESSFUL", "SUCCESS", "PAID", "COMPLETED"];
+    const failedStatuses = ["FAILED", "CANCELED", "CANCELLED", "DECLINED"];
+
+    // Check if payment is in final state
+    if (!successStatuses.includes(statusUpper) && !failedStatuses.includes(statusUpper)) {
+      logger.info({ reference, status: statusUpper }, "Subscription payment not in final state");
+      return NextResponse.json({ received: true }, { status: 200 });
+    }
+
+    // Extract userId from reference (format: MONTHLY_SUB_{userId}_{timestamp})
+    const match = reference.match(/MONTHLY_SUB_([a-zA-Z0-9_-]+)_/);
+    const userId = match?.[1];
+
+    if (!userId) {
+      logger.error({ reference }, "Could not extract userId from subscription reference");
+      return NextResponse.json({ received: true }, { status: 200 });
+    }
+
+    // Verify user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true },
+    });
+
+    if (!user) {
+      logger.error({ userId }, "User not found for subscription payment");
+      return NextResponse.json({ received: true }, { status: 200 });
+    }
+
+    // Process payment based on status
+    if (successStatuses.includes(statusUpper)) {
+      await processMonthlySubscriptionPayment(userId);
+      logger.info(
+        { userId, reference, amount: payment.amount },
+        "✅ Subscription payment processed successfully"
+      );
+    } else if (failedStatuses.includes(statusUpper)) {
+      logger.warn({ userId, reference, status: statusUpper }, "Subscription payment failed");
+    }
+
+    return NextResponse.json({ received: true }, { status: 200 });
+  } catch (error) {
+    logger.error({ err: error }, "Subscription payment handler error");
+    return NextResponse.json({ received: true }, { status: 200 });
+  }
+}
+
+/**
+ * Handle infrastructure-based course payments
+ */
+async function handleInfrastructurePayment(payment: any) {
+  try {
+    const statusUpper = payment.status?.toUpperCase();
+    const successStatuses = ["SUCCESSFUL", "SUCCESS", "PAID", "COMPLETED"];
+    const failedStatuses = ["FAILED", "CANCELED", "CANCELLED", "DECLINED"];
+
+    // Find enrollment by transaction ID
     const enrollment = await prisma.enrollment.findUnique({
       where: { transactionId: payment.id },
     });
 
     if (!enrollment) {
-      logger.warn({ transactionId: payment.id }, "Enrollment not found for transaction - unable to process payment");
-      // Return 200 so Nkwa stops retrying; we can't process a missing enrollment
+      logger.warn({ transactionId: payment.id }, "Enrollment not found for infrastructure payment");
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
-    // 7. Update Database (Idempotent & Multi-Status Support)
-    const statusUpper = payment.status?.toUpperCase();
-
-    // Only update if we are currently Pending to avoid overwriting completed states
+    // Only update if enrollment is still pending
     if (enrollment.status === "Pending") {
-      
-      // FIX: Accept multiple variations of success
-      const successStatuses = ["SUCCESSFUL", "SUCCESS", "PAID", "COMPLETED"];
-      const failedStatuses = ["FAILED", "CANCELED", "CANCELLED", "DECLINED"];
-
       if (successStatuses.includes(statusUpper)) {
         // Calculate next payment due (30 days from now)
         const nextPaymentDue = new Date();
@@ -88,7 +166,7 @@ export async function POST(req: Request) {
         const updatedEnrollment = await prisma.enrollment.update({
           where: { id: enrollment.id },
           data: {
-            status: "Active", // Matches your schema Enum
+            status: "Active",
             paidAt: new Date(),
             nextPaymentDue: nextPaymentDue,
             rawResponse: payment,
@@ -104,7 +182,7 @@ export async function POST(req: Request) {
           },
         });
 
-        // Increment infrastructure current enrollment if infrastructure-based course
+        // Increment infrastructure current enrollment if applicable
         if (updatedEnrollment.infrastructure) {
           await prisma.infrastructure.update({
             where: { id: updatedEnrollment.infrastructure.id },
@@ -116,11 +194,11 @@ export async function POST(req: Request) {
           });
         }
 
-        // Send payment receipt email to student
+        // Send payment receipt email
         try {
           const notif = await import("@/lib/notifications");
-          const user = (updatedEnrollment.User as any);
-          const course = (updatedEnrollment.Course as any);
+          const user = updatedEnrollment.User as any;
+          const course = updatedEnrollment.Course as any;
           await (notif as any).sendPaymentReceipt(user?.email, {
             studentName: user?.name || "Student",
             courseName: course?.title,
@@ -134,25 +212,20 @@ export async function POST(req: Request) {
           logger.error({ err: error, enrollmentId: enrollment.id }, "Failed to send payment receipt email");
         }
 
-        // Send notification to infrastructure owner if infrastructure-based course
+        // Send infrastructure owner notification
         if (updatedEnrollment.infrastructure) {
           try {
             const notif = await import("@/lib/notifications");
             const infra = updatedEnrollment.infrastructure as any;
-            const user = (updatedEnrollment.User as any);
-            const course = (updatedEnrollment.Course as any);
+            const user = updatedEnrollment.User as any;
+            const course = updatedEnrollment.Course as any;
             const town = (infra.town as any);
-            
-            // Get current enrollment count and earnings
+
             const totalEnrolled = await prisma.infrastructure.findUnique({
               where: { id: infra.id },
               select: { currentEnrollment: true },
             });
 
-            const message = `New enrollment confirmed! ${user?.name || 'A student'} has completed payment for ${course?.title}. 
-Your infrastructure now has ${totalEnrolled?.currentEnrollment || 0} students. 
-Monthly earnings: XAF ${((totalEnrolled?.currentEnrollment || 0) * enrollment.amount).toLocaleString()}`;
-            
             await (notif as any).sendInfrastructureOwnerNotification(infra.publicContact, {
               studentName: user?.name || "Student",
               studentEmail: user?.email || "N/A",
@@ -162,13 +235,12 @@ Monthly earnings: XAF ${((totalEnrolled?.currentEnrollment || 0) * enrollment.am
               monthlyFee: enrollment.amount,
             });
           } catch (error) {
-            logger.error({ err: error, enrollmentId: enrollment.id }, "Failed to send infrastructure owner notification");
+            logger.error({ err: error, enrollmentId: enrollment.id }, "Failed to send infrastructure notification");
           }
         }
 
-        logger.info({ enrollmentId: enrollment.id }, "Enrollment activated after payment");
-      } 
-      else if (failedStatuses.includes(statusUpper)) {
+        logger.info({ enrollmentId: enrollment.id }, " Infrastructure enrollment activated after payment");
+      } else if (failedStatuses.includes(statusUpper)) {
         await prisma.enrollment.update({
           where: { id: enrollment.id },
           data: {
@@ -176,39 +248,36 @@ Monthly earnings: XAF ${((totalEnrolled?.currentEnrollment || 0) * enrollment.am
             rawResponse: payment,
           },
         });
-        logger.info({ enrollmentId: enrollment.id }, "Enrollment cancelled due to payment failure");
-      }
-      else {
-        // Use this to catch statuses like "PENDING" and just update the raw log
+        logger.info({ enrollmentId: enrollment.id }, "Infrastructure enrollment cancelled due to payment failure");
+      } else {
+        // Payment pending - just log
         await prisma.enrollment.update({
           where: { id: enrollment.id },
-          data: { rawResponse: payment }
+          data: { rawResponse: payment },
         });
-        logger.info({ enrollmentId: enrollment.id, status: statusUpper }, "Payment status not final, enrollment remains pending");
+        logger.info({ enrollmentId: enrollment.id }, "⏳ Infrastructure payment still pending");
       }
     } else {
-      logger.info({ enrollmentId: enrollment.id, currentStatus: enrollment.status }, "Enrollment already processed, ignoring update");
+      logger.info({ enrollmentId: enrollment.id, currentStatus: enrollment.status }, "Infrastructure enrollment already processed, skipping");
     }
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error) {
-    logger.error({ err: error }, "Webhook internal error");
-    // Return 500 so Nkwa retries if it was a server crash
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    logger.error({ err: error }, "Infrastructure payment handler error");
+    return NextResponse.json({ received: true }, { status: 200 });
   }
 }
 
-function verifyWebhookSignature(
-  publicKey: string,
-  message: string,
-  signatureBase64: string
-): boolean {
+/**
+ * Verify RSA-SHA256 webhook signature
+ */
+function verifyWebhookSignature(publicKey: string, message: string, signatureBase64: string): boolean {
   try {
     const verifier = createVerify("RSA-SHA256");
     verifier.update(message);
     return verifier.verify(publicKey, Buffer.from(signatureBase64, "base64"));
   } catch (error) {
-    logger.error({ err: error }, "Crypto signature verification error");
+    logger.error({ err: error }, "Signature verification error");
     return false;
   }
 }

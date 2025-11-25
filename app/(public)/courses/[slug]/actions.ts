@@ -5,8 +5,15 @@ import { prisma } from "@/lib/db";
 import { nkwa } from "@/lib/nkwa";
 import { ApiResponse } from "@/lib/type";
 import logger from "@/lib/logger";
+import * as notif from "@/lib/notifications";
 
-
+// const aj = arcjet.withRule(
+//   fixedWindow({ Time: -----> 6:48:54
+//     mode: "LIVE",
+//     window: "1m",
+//     max: 5,
+//   })
+// );
 
 export async function enrollInCourseAction(
   courseId: string,
@@ -152,25 +159,15 @@ export async function enrollInCourseAction(
       phoneNumber: phoneNumber,
     });
 
-    // OPTIMIZATION: Batch update enrollment with NKWA payment details
-    const updatedEnrollment = await prisma.enrollment.update({
+    // Update enrollment with NKWA payment details
+    await prisma.enrollment.update({
       where: { id: enrollment.id },
       data: {
         transactionId: payment.id,
         rawResponse: payment as any,
       },
-      include: {
-        infrastructure: {
-          include: {
-            town: true,
-          },
-        },
-        User: true,
-        Course: true,
-      },
     });
 
-  
 
     return {
       status: "success",
