@@ -23,8 +23,14 @@ export default function VerifyRequest() {
           email: email,
           otp: otp,
           fetchOptions: {
-            onSuccess: () => {
-                toast.success("Email verified! Signing you in...");
+            onSuccess: async () => {
+                toast.success("Email verified! Starting your 7-day free trial...");
+                // Initialize trial for new user
+                try {
+                  await fetch("/api/auth/init-trial", { method: "POST" });
+                } catch (error) {
+                  console.error("Trial initialization failed silently, continuing...");
+                }
                 router.push("/");
             },
             onError: () => {

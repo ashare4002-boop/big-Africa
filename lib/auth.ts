@@ -6,11 +6,11 @@ import { prisma } from "./db";
 import { env } from "./env";
 import { emailOTP } from "better-auth/plugins";
 import { resend } from "./resend";
-import { admin } from "better-auth/plugins" 
+import { admin } from "better-auth/plugins";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
-    provider: "postgresql", // or "mysql", "postgresql", ...etc
+    provider: "postgresql",
   }),
 
   socialProviders: {
@@ -25,7 +25,7 @@ export const auth = betterAuth({
     emailOTP({
        async sendVerificationOTP({email, otp}) { 
         await resend.emails.send({
-            from: "A-share  <onboarding@resend.dev>", // With onboarding yoy can only send email to you. Verify your domain...to send to every user.
+            from: "A-share  <onboarding@resend.dev>",
             to: [email],
             subject: "A-share Please verify your",
             html: `<p>Your verification code is <strong>${otp}</strong></p>`

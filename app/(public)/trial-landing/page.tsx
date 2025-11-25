@@ -44,7 +44,7 @@ export default function TrialLandingPage() {
           </div>
 
           <Button asChild className="w-full bg-indigo-600 hover:bg-indigo-700 mb-4">
-            <Link href="/signup">
+             <Link href="/login">
               Start Your 7-Day Free Trial
             </Link>
           </Button>
