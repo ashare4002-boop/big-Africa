@@ -31,18 +31,46 @@ export default function EnrollmentPaymentPage({ params }: { params: Params }) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        setError(error.error || "Failed to initialize payment");
-        toast.error(error.error || "Payment initialization failed");
+        const errorData = await response.json().catch(() => ({}));
+        let userMessage = "Failed to initialize payment";
+        
+        if (response.status === 401) {
+          userMessage = "You are not logged in. Please log in and try again.";
+        } else if (response.status === 400) {
+          userMessage = "Invalid enrollment. Please check your enrollment details and try again.";
+        } else if (response.status === 404) {
+          userMessage = "Enrollment not found. Please go back and try again.";
+        } else if (response.status === 500) {
+          userMessage = "Payment service temporarily unavailable. Please try again in a few moments.";
+        } else {
+          userMessage = errorData.error || "Failed to initialize payment. Please try again or contact support.";
+        }
+        
+        setError(userMessage);
+        toast.error(userMessage);
         return;
       }
 
       const data = await response.json();
+      if (!data.paymentLink) {
+        throw new Error("Payment link not received from server");
+      }
       setPaymentLink(data.paymentLink);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Payment initialization failed";
-      setError(message);
-      toast.error(message);
+      let errorMessage = "Failed to initialize payment";
+      
+      if (!navigator.onLine) {
+        errorMessage = "No internet connection. Please check your connection and try again.";
+      } else if (err instanceof TypeError && err.message.includes("fetch")) {
+        errorMessage = "Network error. Please check your internet connection and try again.";
+      } else if (err instanceof Error) {
+        errorMessage = err.message.includes("Payment link") 
+          ? "Payment service error. Please try again or contact support."
+          : err.message;
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

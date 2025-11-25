@@ -2,6 +2,7 @@
 
 import { requireAdmin } from "@/app/data/admin/require-admin";
 import { prisma } from "@/lib/db";
+import logger from "@/lib/logger";
 import { ApiResponse } from "@/lib/type";
 
 export async function deleteCourse(courseId: string): Promise<ApiResponse> {
@@ -58,7 +59,7 @@ export async function deleteCourse(courseId: string): Promise<ApiResponse> {
       sound: "success" as const,
     };
   } catch (error) {
-    console.error("Delete course error:", error);
+    logger.error({ err: error }, "Delete course error");
     return {
       status: "error" as const,
       message: "Failed to delete course",

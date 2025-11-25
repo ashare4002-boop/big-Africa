@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { buttonVariants } from "@/components/ui/button";
 
@@ -57,6 +58,11 @@ export function ClientStatusPoller({ paymentId }: { paymentId: string }) {
 
           if (result.status === "Active") {
             clearInterval(intervalId);
+            // Show toast notification to check email for receipt
+            toast.success("Payment confirmed! Check your email for your receipt and enrollment details.", {
+              duration: 5000,
+              position: "top-center",
+            });
             if (result.courseSlug) {
               router.push(`/courses/${result.courseSlug}`);
             } else {

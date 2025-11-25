@@ -7,6 +7,8 @@ import { request } from "@arcjet/next";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { calculateNextPaymentDue } from "@/lib/infrastructure-utils";
+import * as notif from "@/lib/notifications";
+import logger from "@/lib/logger";
 
 const aj = arcjet.withRule(
   fixedWindow({
@@ -118,55 +120,49 @@ export async function enrollInInfrastructureBaseCourse(
     // Create enrollment
     const nextPaymentDue = calculateNextPaymentDue(new Date());
 
-    const enrollment = await prisma.enrollment.create({
-      data: {
-        userId: session.user.id,
-        courseId,
-        infrastructureId,
-        status: "Pending",
-        provider: "nkwa", // Default provider
-        amount: course.price,
-        nextPaymentDue,
-        isEjected: false,
-        ejectionCount: 0,
-      },
-    });
-
-    // Increment infrastructure enrollment count
-    await prisma.infrastructure.update({
-      where: { id: infrastructureId },
-      data: {
-        currentEnrollment: {
-          increment: 1,
+    // OPTIMIZATION: Batch enrollment creation and infrastructure update in transaction
+    const enrollment = await prisma.$transaction(async (tx) => {
+      const newEnrollment = await tx.enrollment.create({
+        data: {
+          userId: session.user.id,
+          courseId,
+          infrastructureId,
+          status: "Pending",
+          provider: "nkwa",
+          amount: course.price,
+          nextPaymentDue,
+          isEjected: false,
+          ejectionCount: 0,
         },
-      },
+      });
+
+      // Increment infrastructure enrollment count in same transaction
+      await tx.infrastructure.update({
+        where: { id: infrastructureId },
+        data: {
+          currentEnrollment: {
+            increment: 1,
+          },
+        },
+      });
+
+      return newEnrollment;
     });
 
-    // Send notifications
-    const { sendInfrastructureOwnerNotification, sendStudentEnrollmentConfirmation } = await import("@/lib/notifications");
-    
-    try {
-      await Promise.all([
-        sendInfrastructureOwnerNotification(infrastructure.publicContact, {
-          studentName: session.user.name || "Student",
-          studentEmail: session.user.email,
-          courseName: course.title,
-          infrastructureName: infrastructure.name,
-          town: "TBD",
-          monthlyFee: course.price,
-        }),
-        sendStudentEnrollmentConfirmation(session.user.email, {
-          studentName: session.user.name || "Student",
-          courseName: course.title,
-          infrastructureName: infrastructure.name,
-          town: "TBD",
-          monthlyFee: course.price,
-          paymentLink: `${process.env.NEXT_PUBLIC_BASE_URL}/enrollment/${enrollment.id}/pay`,
-        }),
-      ]);
-    } catch (error) {
-      console.error("Failed to send notifications:", error);
-    }
+    // OPTIMIZATION: Send notifications asynchronously without blocking response
+    notif.sendInfrastructureOwnerNotification(infrastructure.publicContact, {
+      studentName: session.user.name || "Student",
+      studentEmail: session.user.email,
+      courseName: course.title,
+      infrastructureName: infrastructure.name,
+      town: "TBD",
+      monthlyFee: course.price,
+    }).catch(err => logger.error({ err }, "Failed to send infrastructure owner notification"));
+
+    // NOTE: Do NOT send student confirmation email here. For infrastructure-based courses,
+    // only the payment receipt email should be sent after successful payment via webhook.
+    // This prevents double-payment issues if students click "Complete Payment" in the confirmation email.
+    // The payment receipt (sendPaymentReceipt) is sent after NKWA webhook confirms successful payment.
 
     return {
       status: "success" as const,
@@ -175,7 +171,7 @@ export async function enrollInInfrastructureBaseCourse(
       sound: "success" as const,
     };
   } catch (error) {
-    console.error("Enrollment error:", error);
+    logger.error({ err: error }, "Enrollment error");
     return {
       status: "error",
       message: "Failed to enroll in course",

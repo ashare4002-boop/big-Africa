@@ -25,9 +25,6 @@ import { useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Uploader } from "@/components/file-uploader/Uploader";
-import pino from "pino";
-
-const logger = pino();
 
 interface InfrastructureFormProps {
   courseId: string;
@@ -68,30 +65,24 @@ export function InfrastructureForm({
   });
 
   const onSubmit = async (values: any) => {
-    logger.info({ values }, "[DEBUG] ✅ FORM SUBMITTED!");
-    
     // Validate tutors
     const validTutors = tutors.filter(t => t.trim());
     if (validTutors.length === 0) {
-      logger.warn("[DEBUG] ❌ No tutors provided");
-      toast.error("Please add at least one tutor");
+      toast.error("Please add at least one instructor");
       return;
     }
 
     // Validate images
     if (!values.facilityImageKey?.trim()) {
-      logger.warn("[DEBUG] ❌ No facility image");
       toast.error("Please upload a facility image");
       return;
     }
 
     if (!values.locationImageKey?.trim()) {
-      logger.warn("[DEBUG] ❌ No location image");
       toast.error("Please upload a location image");
       return;
     }
 
-    logger.info("[DEBUG] ✅ All client validations passed");
     setIsLoading(true);
     
     try {
@@ -100,47 +91,44 @@ export function InfrastructureForm({
         tutorNames: validTutors,
       };
 
-      logger.info({ payload }, "[DEBUG] 📤 Sending payload to server");
-
       let result;
       if (editingId) {
-        logger.info("[DEBUG] 🔄 Calling updateInfrastructure...");
         result = await updateInfrastructure(editingId, payload);
       } else {
-        logger.info("[DEBUG] ➕ Calling createInfrastructure...");
         result = await createInfrastructure({
           ...payload,
           courseId,
         });
       }
 
-      logger.info({ result }, "[DEBUG] 📥 Server response");
-
       if (result.status === "success") {
-        logger.info("[DEBUG] ✅ SUCCESS!");
         toast.success(result.message);
         form.reset();
         setTutors([""]);
         onSuccess?.();
       } else {
-        logger.error({ message: result.message }, "[DEBUG] ❌ Server error");
-        toast.error(result.message || "Failed to save infrastructure");
+        toast.error(result.message || `Failed to ${editingId ? 'update' : 'create'} learning center`);
       }
-    } catch (error) {
-      logger.error({ error }, "[DEBUG] ❌ Unexpected error");
-      toast.error(`Failed to ${editingId ? 'update' : 'create'} infrastructure`);
+    } catch (error: any) {
+      if (!navigator.onLine) {
+        toast.error("No internet connection. Please check your connection and try again.");
+      } else if (error?.message?.includes("fetch") || error?.message?.includes("network")) {
+        toast.error("Network error. Please check your internet connection and try again.");
+      } else if (error?.message?.includes("timeout")) {
+        toast.error("Request timed out. Please check your connection and try again.");
+      } else {
+        toast.error(`Failed to ${editingId ? 'update' : 'create'} learning center. Please try again or contact support.`);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   const onInvalid = (errors: any) => {
-    logger.error({ errors }, "[DEBUG] Form validation failed");
     const errorFields = Object.keys(errors);
     if (errorFields.length > 0) {
       const firstError = errors[errorFields[0]];
-      logger.error({ field: errorFields[0], error: firstError }, "[DEBUG] First validation error");
-      toast.error(`Validation error: ${errorFields[0]} - ${firstError?.message || 'Invalid field'}`);
+      toast.error(`Please check the ${errorFields[0]} field`);
     } else {
       toast.error("Please fix the highlighted fields and try again");
     }
@@ -315,14 +303,12 @@ export function InfrastructureForm({
                   value={field.value instanceof Date ? field.value.toISOString().slice(0, 16) : (field.value || "")}
                   onChange={(e) => {
                     const value = e.target.value;
-                    console.log("[DEBUG] DateTime changed to:", value);
                     if (value) {
                       try {
                         const date = new Date(value);
-                        console.log("[DEBUG] Converted to Date:", date);
                         field.onChange(date);
                       } catch (err) {
-                        console.error("[DEBUG] Date conversion error:", err);
+                        toast.error("Invalid date format");
                       }
                     } else {
                       field.onChange(null);

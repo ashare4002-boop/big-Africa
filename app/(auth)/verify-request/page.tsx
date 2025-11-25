@@ -24,11 +24,15 @@ export default function VerifyRequest() {
           otp: otp,
           fetchOptions: {
             onSuccess: () => {
-                toast.success("Email verified successfully")
-                router.push("/ ")
+                toast.success("Email verified! Signing you in...");
+                router.push("/");
             },
             onError: () => {
-                toast.error('Email unverified. Please check your verification code')
+              if (!navigator.onLine) {
+                toast.error("No internet connection. Please check your connection and try again.");
+              } else {
+                toast.error("Invalid or expired verification code. Please request a new code and try again.");
+              }
             }
           }
         })

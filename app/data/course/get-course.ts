@@ -56,6 +56,7 @@ export async function getIndividualCourse(slug: string) {
               facilityImageKey: true,
               locationImageKey: true,
               enrollmentDeadline: true,
+              tutorNames: true,
             },
             orderBy: { createdAt: "asc" },
           },

@@ -176,7 +176,7 @@ Monthly earnings: XAF ${((totalEnrolled?.currentEnrollment || 0) * enrollment.am
             rawResponse: payment,
           },
         });
-        console.log(`❌ Enrollment ${enrollment.id} cancelled.`);
+        logger.info({ enrollmentId: enrollment.id }, "Enrollment cancelled due to payment failure");
       }
       else {
         // Use this to catch statuses like "PENDING" and just update the raw log
@@ -184,15 +184,15 @@ Monthly earnings: XAF ${((totalEnrolled?.currentEnrollment || 0) * enrollment.am
           where: { id: enrollment.id },
           data: { rawResponse: payment }
         });
-        console.log(`ℹ️ Status is '${statusUpper}' (not final). Enrollment remains Pending.`);
+        logger.info({ enrollmentId: enrollment.id, status: statusUpper }, "Payment status not final, enrollment remains pending");
       }
     } else {
-      console.log(`ℹ️ Enrollment ${enrollment.id} is already ${enrollment.status}. Ignoring update.`);
+      logger.info({ enrollmentId: enrollment.id, currentStatus: enrollment.status }, "Enrollment already processed, ignoring update");
     }
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error) {
-    console.error("Webhook Internal Error:", error);
+    logger.error({ err: error }, "Webhook internal error");
     // Return 500 so Nkwa retries if it was a server crash
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
@@ -208,7 +208,7 @@ function verifyWebhookSignature(
     verifier.update(message);
     return verifier.verify(publicKey, Buffer.from(signatureBase64, "base64"));
   } catch (error) {
-    console.error("Crypto Error:", error);
+    logger.error({ err: error }, "Crypto signature verification error");
     return false;
   }
 }

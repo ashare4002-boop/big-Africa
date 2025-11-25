@@ -6,13 +6,7 @@ import { nkwa } from "@/lib/nkwa";
 import { ApiResponse } from "@/lib/type";
 import logger from "@/lib/logger";
 
-// const aj = arcjet.withRule(
-//   fixedWindow({ Time: -----> 6:48:54
-//     mode: "LIVE",
-//     window: "1m",
-//     max: 5,
-//   })
-// );
+
 
 export async function enrollInCourseAction(
   courseId: string,
@@ -158,6 +152,7 @@ export async function enrollInCourseAction(
       phoneNumber: phoneNumber,
     });
 
+    // OPTIMIZATION: Batch update enrollment with NKWA payment details
     const updatedEnrollment = await prisma.enrollment.update({
       where: { id: enrollment.id },
       data: {
@@ -175,27 +170,10 @@ export async function enrollInCourseAction(
       },
     });
 
-    // Send student enrollment confirmation email
-    try {
-      const notif = await import("@/lib/notifications");
-      const user = (updatedEnrollment.User as any);
-      const courseData = (updatedEnrollment.Course as any);
-      const infra = (updatedEnrollment.infrastructure as any);
-      const town = infra?.town as any;
-      
-      const paymentLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://a-share.dev'}/enrollment/${updatedEnrollment.id}/pay`;
-      
-      await (notif as any).sendStudentEnrollmentConfirmation(user?.email, {
-        studentName: user?.name || "Student",
-        courseName: courseData?.title,
-        infrastructureName: infra?.name || "N/A",
-        town: town?.name || "N/A",
-        monthlyFee: monthlyPayment,
-        paymentLink: paymentLink,
-      });
-    } catch (error) {
-      logger.error({ err: error, enrollmentId: enrollment.id }, "Failed to send student enrollment confirmation");
-    }
+    // NOTE: Do NOT send student confirmation email here. For infrastructure-based courses,
+    // only the payment receipt email should be sent after successful payment via webhook.
+    // This prevents double-payment issues if students click "Complete Payment" in the confirmation email.
+    // The payment receipt (sendPaymentReceipt) is sent after NKWA webhook confirms successful payment.
 
     return {
       status: "success",
@@ -206,8 +184,7 @@ export async function enrollInCourseAction(
       },
     };
   } catch (error: any) {
-    // Improve error reporting for Nkwa SDK HttpError
-    console.error("Enrollment error:", error);
+    logger.error({ err: error }, "Enrollment error");
 
     // Try to extract useful info from HttpError body
     let userMessage = "Failed to process enrollment. Please try again.";
@@ -216,20 +193,26 @@ export async function enrollInCourseAction(
         // body may be a JSON string
         const parsed = typeof error.body === "string" ? JSON.parse(error.body) : error.body;
         if (parsed?.message) {
-          userMessage = `Payment provider error: ${parsed.message}`;
+          userMessage = parsed.message;
         } else if (parsed?.error) {
-          userMessage = `Payment provider error: ${parsed.error}`;
+          userMessage = parsed.error;
         }
+      } else if (error?.message?.includes("ECONNREFUSED") || error?.message?.includes("ENOTFOUND")) {
+        userMessage = "Cannot reach payment service. Please check your internet connection and try again.";
+      } else if (error?.message?.includes("timeout") || error?.code === "ETIMEDOUT") {
+        userMessage = "Request timed out. Please check your internet connection and try again.";
+      } else if (error?.message?.includes("ERR_NETWORK")) {
+        userMessage = "Network error. Please check your internet connection and try again.";
       } else if (error?.message) {
         userMessage = error.message;
       }
     } catch (parseErr) {
-      console.error("Failed to parse provider error body:", parseErr);
+      logger.error({ err: parseErr }, "Failed to parse enrollment error body");
     }
 
     return {
       status: "error",
-      message: userMessage,
+      message: userMessage || "Failed to process enrollment. Please check your connection and try again.",
       sound: "error",
     };
   }

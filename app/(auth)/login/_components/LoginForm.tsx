@@ -30,28 +30,41 @@ export function LoginForm() {
         callbackURL: "/",
         fetchOptions: {
           onSuccess: () => {
-            toast.success("Signed in with Google...");
+            toast.success("Signed in successfully! Redirecting...");
           },
           onError: (error) => {
-            toast.error("Internal server error");
+            if (!navigator.onLine) {
+              toast.error("No internet connection. Please check your connection and try again.");
+            } else {
+              toast.error("Failed to sign in with Google. Please try again or use email login.");
+            }
           },
         },
       });
     });
   }
 
-    function SignInWithEmail() {
+  function SignInWithEmail() {
+    if (!email) {
+      toast.error("Please enter your email address");
+      return;
+    }
+    
     startEmailTransition(async () => {
       await authClient.emailOtp.sendVerificationOtp({
         email: email,
         type:"sign-in",
         fetchOptions: {
           onSuccess: () => {
-            toast.success('Verification code was send to your email')
-            router.push(`/verify-request? email = ${email}`   )
+            toast.success('Verification code sent! Check your email.');
+            router.push(`/verify-request?email=${email}`);
           },
           onError:() => {
-            toast.error("Error sending email")
+            if (!navigator.onLine) {
+              toast.error("No internet connection. Please check your connection and try again.");
+            } else {
+              toast.error("Failed to send verification code. Please check your email address and try again.");
+            }
           }
         }
       })

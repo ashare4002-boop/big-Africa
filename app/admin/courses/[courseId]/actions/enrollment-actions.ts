@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { ApiResponse } from "@/lib/type";
 import arcjet, { fixedWindow } from "@/lib/arcjet";
 import { request } from "@arcjet/next";
+import logger from "@/lib/logger";
 
 const aj = arcjet.withRule(
   fixedWindow({
@@ -103,34 +104,37 @@ export async function overrideUserInfrastructure(
       };
     }
 
-    // Decrease old infrastructure enrollment
-    if (enrollment.infrastructureId) {
-      await prisma.infrastructure.update({
-        where: { id: enrollment.infrastructureId },
+    // OPTIMIZATION: Batch all infrastructure and enrollment updates in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Decrease old infrastructure enrollment
+      if (enrollment.infrastructureId) {
+        await tx.infrastructure.update({
+          where: { id: enrollment.infrastructureId },
+          data: {
+            currentEnrollment: {
+              decrement: 1,
+            },
+          },
+        });
+      }
+
+      // Increase new infrastructure enrollment
+      await tx.infrastructure.update({
+        where: { id: newInfrastructureId },
         data: {
           currentEnrollment: {
-            decrement: 1,
+            increment: 1,
           },
         },
       });
-    }
 
-    // Increase new infrastructure enrollment
-    await prisma.infrastructure.update({
-      where: { id: newInfrastructureId },
-      data: {
-        currentEnrollment: {
-          increment: 1,
+      // Update enrollment
+      await tx.enrollment.update({
+        where: { id: enrollmentId },
+        data: {
+          infrastructureId: newInfrastructureId,
         },
-      },
-    });
-
-    // Update enrollment
-    await prisma.enrollment.update({
-      where: { id: enrollmentId },
-      data: {
-        infrastructureId: newInfrastructureId,
-      },
+      });
     });
 
     return {
@@ -210,6 +214,82 @@ export async function unlockUserForReEnrollment(enrollmentId: string): Promise<A
 }
 
 /**
+ * Admin endpoint: Block/eject an active user from re-enrollment
+ */
+export async function blockUserForReEnrollment(enrollmentId: string): Promise<ApiResponse> {
+  const session = await requireAdmin();
+
+  try {
+    const req = await request();
+    const decision = await aj.protect(req, {
+      fingerprint: session.user.id,
+    });
+
+    if (decision.isDenied()) {
+      return {
+        status: "error",
+        message: "Rate limit exceeded",
+        sound: "info",
+      };
+    }
+
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      include: { infrastructure: true },
+    });
+
+    if (!enrollment) {
+      return {
+        status: "error",
+        message: "Enrollment not found",
+        sound: "error",
+      };
+    }
+
+    if (enrollment.isEjected) {
+      return {
+        status: "error",
+        message: "User is already ejected",
+        sound: "info",
+      };
+    }
+
+    // Batch update enrollment and decrement infrastructure in transaction
+    await prisma.$transaction(async (tx) => {
+      await tx.enrollment.update({
+        where: { id: enrollmentId },
+        data: {
+          isEjected: true,
+          ejectionCount: enrollment.ejectionCount + 1,
+          status: "Cancelled",
+        },
+      });
+
+      if (enrollment.infrastructureId) {
+        await tx.infrastructure.update({
+          where: { id: enrollment.infrastructureId },
+          data: {
+            currentEnrollment: { decrement: 1 },
+          },
+        });
+      }
+    });
+
+    return {
+      status: "success",
+      message: "User blocked from re-enrollment",
+      sound: "success",
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: "Failed to block user",
+      sound: "error",
+    };
+  }
+}
+
+/**
  * Get infrastructure capacity and earnings analytics
  */
 export async function getInfrastructureAnalytics(courseId: string): Promise<ApiResponse<{ analytics: unknown[] }>> {
@@ -253,17 +333,21 @@ export async function getInfrastructureAnalytics(courseId: string): Promise<ApiR
           ejectedUsersCount: ejectedUsers.length,
           enrolledStudents: activeEnrollments.map((e: any) => ({
             id: e.userId,
+            enrollmentId: e.id,
             name: (e.User as any).name,
             email: (e.User as any).email,
             enrolledAt: e.createdAt,
             nextPaymentDue: e.nextPaymentDue,
+            isEjected: false,
           })),
           ejectedStudents: ejectedUsers.map((e: any) => ({
             id: e.userId,
+            enrollmentId: e.id,
             name: (e.User as any).name,
             email: (e.User as any).email,
             ejectedAt: e.updatedAt,
             ejectionCount: e.ejectionCount,
+            isEjected: true,
           })),
         };
       })
@@ -276,7 +360,7 @@ export async function getInfrastructureAnalytics(courseId: string): Promise<ApiR
       sound: "success" as const,
     };
   } catch (error) {
-    console.error("Analytics error:", error);
+    logger.error({ err: error }, "Analytics error");
     return {
       status: "error",
       message: "Failed to fetch analytics",

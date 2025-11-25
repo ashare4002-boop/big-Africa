@@ -42,10 +42,9 @@ export async function createInfrastructure(
         .map(e => `${e.path.join('.')}: ${e.message}`)
         .join('; ');
       logger.error({ errors, receivedData: data }, "Infrastructure validation failed");
-      console.error("[Infrastructure Creation] Validation Error Details:", errors);
       return {
         status: "error",
-        message: `Invalid form data: ${errors}`,
+        message: "Please fill in all required fields correctly.",
         sound: "info",
       };
     }
@@ -81,19 +80,25 @@ export async function createInfrastructure(
       };
     } catch (dbError) {
       logger.error({ err: dbError }, "Database error creating infrastructure");
-      console.error("[Infrastructure Creation] Database Error:", dbError);
       return {
         status: "error",
-        message: `Failed to create infrastructure: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`,
+        message: "Database error. Please try again or contact support.",
         sound: "error",
       };
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error({ err: error }, "Infrastructure creation failed");
-    console.error("[Infrastructure Creation] Unexpected Error:", error);
+    
+    let userMessage = "Failed to create learning center. Please try again.";
+    if (error?.message?.includes("ECONNREFUSED") || error?.message?.includes("ENOTFOUND")) {
+      userMessage = "Cannot reach the server. Please check your internet connection and try again.";
+    } else if (error?.message?.includes("timeout") || error?.code === "ETIMEDOUT") {
+      userMessage = "Request timed out. Please check your connection and try again.";
+    }
+    
     return {
       status: "error",
-      message: "Failed to create infrastructure",
+      message: userMessage,
       sound: "error",
     };
   }
@@ -154,10 +159,19 @@ export async function createTown(
       message: "Town created successfully",
       sound: "success",
     };
-  } catch (error) {
+  } catch (error: any) {
+    logger.error({ err: error }, "Town creation failed");
+    
+    let userMessage = "Failed to create town. Please try again.";
+    if (error?.message?.includes("ECONNREFUSED") || error?.message?.includes("ENOTFOUND")) {
+      userMessage = "Cannot reach the server. Please check your internet connection and try again.";
+    } else if (error?.message?.includes("timeout") || error?.code === "ETIMEDOUT") {
+      userMessage = "Request timed out. Please check your connection and try again.";
+    }
+    
     return {
       status: "error",
-      message: "Failed to create town",
+      message: userMessage,
       sound: "error",
     };
   }
@@ -215,10 +229,9 @@ export async function updateInfrastructure(
         .map(e => `${e.path.join('.')}: ${e.message}`)
         .join('; ');
       logger.error({ errors, receivedData: data }, "Infrastructure update validation failed");
-      console.error("[Infrastructure Update] Validation Error Details:", errors);
       return {
         status: "error",
-        message: `Invalid form data: ${errors}`,
+        message: "Please fill in all required fields correctly.",
         sound: "info",
       };
     }
@@ -260,19 +273,25 @@ export async function updateInfrastructure(
       };
     } catch (dbError) {
       logger.error({ err: dbError }, "Database error updating infrastructure");
-      console.error("[Infrastructure Update] Database Error:", dbError);
       return {
         status: "error",
-        message: `Failed to update infrastructure: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`,
+        message: "Database error. Please try again or contact support.",
         sound: "error",
       };
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error({ err: error }, "Infrastructure update failed");
-    console.error("[Infrastructure Update] Unexpected Error:", error);
+    
+    let userMessage = "Failed to update learning center. Please try again.";
+    if (error?.message?.includes("ECONNREFUSED") || error?.message?.includes("ENOTFOUND")) {
+      userMessage = "Cannot reach the server. Please check your internet connection and try again.";
+    } else if (error?.message?.includes("timeout") || error?.code === "ETIMEDOUT") {
+      userMessage = "Request timed out. Please check your connection and try again.";
+    }
+    
     return {
       status: "error",
-      message: "Failed to update infrastructure",
+      message: userMessage,
       sound: "error",
     };
   }

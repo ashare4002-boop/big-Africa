@@ -7,6 +7,7 @@ import {
 } from "@/lib/blockTypes";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/app/data/admin/require-admin";
+import logger from "@/lib/logger";
 
 export async function addLessonBlock(
   lessonId: string,
@@ -38,7 +39,7 @@ export async function addLessonBlock(
     revalidatePath(`/admin/courses`);
     return { success: true, data: newBlock };
   } catch (error) {
-    console.error("Error adding lesson block:", error);
+    logger.error({ err: error }, "Error adding lesson block");
     return { success: false, error: "Failed to add block" };
   }
 }
@@ -62,7 +63,7 @@ export async function updateLessonBlock(
     revalidatePath(`/admin/courses`);
     return { success: true, data: updated };
   } catch (error) {
-    console.error("Error updating lesson block:", error);
+    logger.error({ err: error }, "Error updating lesson block");
     return { success: false, error: "Failed to update block" };
   }
 }
@@ -98,7 +99,7 @@ export async function deleteLessonBlock(blockId: string) {
     revalidatePath(`/admin/courses`);
     return { success: true };
   } catch (error) {
-    console.error("Error deleting lesson block:", error);
+    logger.error({ err: error }, "Error deleting lesson block");
     return { success: false, error: "Failed to delete block" };
   }
 }
@@ -122,7 +123,7 @@ export async function reorderLessonBlocks(
     revalidatePath(`/admin/courses`);
     return { success: true };
   } catch (error) {
-    console.error("Error reordering lesson blocks:", error);
+    logger.error({ err: error }, "Error reordering lesson blocks");
     return { success: false, error: "Failed to reorder blocks" };
   }
 }
@@ -136,7 +137,7 @@ export async function getLessonBlocks(lessonId: string) {
 
     return { success: true, data: blocks };
   } catch (error) {
-    console.error("Error fetching lesson blocks:", error);
+    logger.error({ err: error }, "Error fetching lesson blocks");
     return { success: false, error: "Failed to fetch blocks" };
   }
 }

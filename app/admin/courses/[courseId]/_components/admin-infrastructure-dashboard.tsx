@@ -5,9 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, DollarSign, Unlock } from "lucide-react";
+import { AlertCircle, DollarSign, Unlock, Lock } from "lucide-react";
 import { getInfrastructureAnalytics } from "../actions/enrollment-actions";
-import { unlockUserForReEnrollment } from "../actions/enrollment-actions";
+import { unlockUserForReEnrollment, blockUserForReEnrollment } from "../actions/enrollment-actions";
 import { toast } from "sonner";
 
 interface AdminInfrastructureDashboardProps {
@@ -27,8 +27,8 @@ interface AnalyticsItem {
   ownerPhoneNumber: string;
   activeEnrollmentsCount: number;
   ejectedUsersCount: number;
-  enrolledStudents: unknown[];
-  ejectedStudents: unknown[];
+  enrolledStudents: Array<{id: string; enrollmentId: string; name: string; email: string; nextPaymentDue?: string; isEjected: boolean}>;
+  ejectedStudents: Array<{id: string; enrollmentId: string; name: string; email: string; ejectionCount: number; isEjected: boolean}>;
 }
 
 export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDashboardProps) {
@@ -53,7 +53,17 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
   const handleUnlockUser = async (enrollmentId: string) => {
     const result = await unlockUserForReEnrollment(enrollmentId);
     if (result.status === "success") {
-      toast.success("User unlocked");
+      toast.success("User unlocked for re-enrollment");
+      await loadAnalytics();
+    } else {
+      toast.error(result.message);
+    }
+  };
+
+  const handleBlockUser = async (enrollmentId: string) => {
+    const result = await blockUserForReEnrollment(enrollmentId);
+    if (result.status === "success") {
+      toast.success("User blocked from re-enrollment");
       await loadAnalytics();
     } else {
       toast.error(result.message);
@@ -178,6 +188,14 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
                               <p className="text-xs text-orange-600">Payment due: {new Date(student.nextPaymentDue).toLocaleDateString()}</p>
                             )}
                           </div>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleBlockUser(student.enrollmentId)}
+                          >
+                            <Lock className="w-4 h-4 mr-2" />
+                            Block Re-Enroll
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -210,7 +228,11 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
                             <p className="text-sm text-gray-600">{student.email}</p>
                             <p className="text-xs text-red-600">Ejected {student.ejectionCount}x</p>
                           </div>
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleUnlockUser(student.id)}
+                          >
                             <Unlock className="w-4 h-4 mr-2" />
                             Allow Re-Enroll
                           </Button>

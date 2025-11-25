@@ -34,13 +34,7 @@ interface iAppProps {
 }
 
 export function Uploader({ onChange, value, fileTypeAccepted }: iAppProps) {
-  // ✅ FIX: Hook called unconditionally
-  // We pass 'value' if it exists, otherwise an empty string to satisfy the hook
-  const constructedUrl = useConstructUrl(value ?? "");
-  
-  // Apply the logic here instead: if no value, fileUrl is undefined
-  const fileUrl = value ? constructedUrl : undefined;
-
+  const fileUrl = value ? useConstructUrl(value) : undefined;
   const [fileState, setFileState] = useState<uploaderState>({
     error: false,
     file: null,

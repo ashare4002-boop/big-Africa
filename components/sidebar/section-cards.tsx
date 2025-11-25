@@ -3,6 +3,8 @@ import {
   IconPlaylistX,
   IconShoppingCart,
   IconUsers,
+  IconBuildingCommunity,
+  IconCoin,
 } from "@tabler/icons-react";
 
 import {
@@ -15,7 +17,7 @@ import {
 import { adminGetDashboardStats } from "@/app/data/admin/admin-get-dashboard-stats";
 
 export async function SectionCards() {
-  const { totalSignup, totalCustomers, totalCourses, totalLessons } =
+  const { totalSignup, totalCustomers, totalCourses, totalLessons, totalInfrastructure, totalEarnings } =
     await adminGetDashboardStats();
   return (
     <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4  *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs  @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
@@ -76,6 +78,40 @@ export async function SectionCards() {
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <p className="text-muted-foreground">Available Lessons on A-share</p>
+        </CardFooter>
+      </Card>
+
+      <Card className="@container/card">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div>
+            <CardDescription>Total Infrastructure</CardDescription>
+            <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+              {totalInfrastructure}
+            </CardTitle>
+          </div>
+          <IconBuildingCommunity className="size-6 text-muted-foreground" />
+        </CardHeader>
+        <CardFooter className="flex-col items-start gap-1.5 text-sm">
+          <p className="text-muted-foreground">Active learning centers</p>
+        </CardFooter>
+      </Card>
+
+      <Card className="@container/card">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div>
+            <CardDescription>Total Earnings</CardDescription>
+            <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+              {new Intl.NumberFormat("en-US", {
+                style: "currency",
+                currency: "XAF",
+                maximumFractionDigits: 0,
+              }).format(totalEarnings)}
+            </CardTitle>
+          </div>
+          <IconCoin className="size-6 text-muted-foreground" />
+        </CardHeader>
+        <CardFooter className="flex-col items-start gap-1.5 text-sm">
+          <p className="text-muted-foreground">Infrastructure revenue</p>
         </CardFooter>
       </Card>
     </div>

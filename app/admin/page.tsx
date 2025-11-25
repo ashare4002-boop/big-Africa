@@ -3,6 +3,7 @@ import { ChartAreaInteractive } from "@/components/sidebar/chart-area-interactiv
 import { adminEnrollmentStats } from "../data/admin/admin-get-enrollments-stats";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+import { InfrastructureList } from "./_components/infrastructure-list";
 
 export default async function AdminIndexPage() {
   const enrollmentData = await adminEnrollmentStats();
@@ -20,6 +21,10 @@ export default async function AdminIndexPage() {
             View All Courses
           </Link>
         </div>
+      </div>
+
+      <div className="mt-8">
+        <InfrastructureList />
       </div>
     </>
   );

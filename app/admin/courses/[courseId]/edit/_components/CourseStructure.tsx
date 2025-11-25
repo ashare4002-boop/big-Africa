@@ -76,8 +76,6 @@ export function CourseStructure({ data }: iAppProps) {
 
   const [items, setItems] = useState(initialItems);
 
-  console.log(items);
-
   useEffect(() => { // <------- use effect hook to sync the client state nd the server state
     setItems((prevItems) => {
       const updatedItems =

@@ -4,13 +4,13 @@ import { processMonthlySubscriptionCheck } from "@/lib/infrastructure-utils";
 import logger from "@/lib/logger";
 
 /**
- * GET /api/cron/monthly-subscription-check
+ * GET/POST /api/cron/monthly-subscription-check
  * Background job: Check and eject users with overdue infrastructure-based course payments
  * 
  * To be called by external service (e.g., cron-job.org, EasyCron)
  * Should be called once daily
  */
-export async function GET(request: NextRequest) {
+async function handleRequest(request: NextRequest) {
   try {
     // Validate cron secret (if you're using an external cron service)
     const cronSecret = request.headers.get("x-cron-secret");
@@ -69,3 +69,6 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = handleRequest;
+export const POST = handleRequest;

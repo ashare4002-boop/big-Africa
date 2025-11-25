@@ -75,10 +75,16 @@ export function InfrastructureManagement({
         setDeleteConfirmId(null);
         onInfrastructureUpdate?.();
       } else {
-        toast.error(result.message);
+        toast.error(result.message || "Failed to delete learning center. Please try again.");
       }
-    } catch (error) {
-      toast.error("Failed to delete infrastructure");
+    } catch (error: any) {
+      if (!navigator.onLine) {
+        toast.error("No internet connection. Please check your connection and try again.");
+      } else if (error?.message?.includes("fetch") || error?.message?.includes("network")) {
+        toast.error("Network error. Please check your internet connection and try again.");
+      } else {
+        toast.error("Failed to delete learning center. Please try again or contact support.");
+      }
     } finally {
       setIsDeleting(false);
     }
