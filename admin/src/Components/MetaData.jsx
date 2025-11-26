@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, X, Clock, User, BookOpen, Send, Copy, Check, Upload, FileText } from 'lucide-react';
 import ServerConfig from "../Constants/Config.js";
+import { BASE_URL, apiFetch } from "../api/client.js";
 
 function MetaData() {
     // State for time configuration
@@ -152,19 +153,14 @@ function MetaData() {
         };
 
         try {
-            let URL = ServerConfig.BaseURL + '/metadata'
-            const response = await fetch('http://localhost:3000/metadata', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (response.ok) {
+            try {
+                await apiFetch('/metadata', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
                 alert('Data submitted successfully!');
-            } else {
-                console.error(response);
+            } catch (err) {
                 alert('Failed to submit data');
             }
         } catch (error) {

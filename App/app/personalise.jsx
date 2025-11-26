@@ -6,9 +6,9 @@ import { db } from "../firebaseConfig";
 import Button from "../Components/Button";
 import CC from "../Components/CourseContainer";
 import User from "../Components/UserInfo";
-import { getUser, storeUser } from "../Helper/storage";
+import { getUser, storeUser, storeAuth } from "../Helper/storage";
 import { router } from "expo-router";
-import { getSubjects } from "../Helper/Data";
+import { apiSignup, apiListCourses, apiSelectCourses, apiGenerateTimetable } from "../Helper/Data";
 
 const { height, width } = Dimensions.get('window');
 
@@ -17,6 +17,7 @@ const app = () => {
     const [metadata, setMetadata] = useState(null);
     const [mode, setMode] = useState(true);
     const [url, setUrl] = useState("");
+    const [token, setToken] = useState(null);
     const [user, setUser] = useState({
         name: "",
         year: "1",
@@ -32,15 +33,12 @@ const app = () => {
         }
     };
     const fetchSubjects = async () => {
-        if (!url || !user.year) {
-            return;
-        }
-
+        if (!token) { return; }
         try {
-            const subjects = await getSubjects(url, user.year);
-            setMetadata(subjects);
+            const res = await apiListCourses(token, null);
+            setMetadata(res?.data || []);
         } catch (err) {
-            alert('Failed to fetch subjects: ' + err.message);
+            alert('Failed to fetch courses: ' + err.message);
         }
     };
 
@@ -48,20 +46,8 @@ const app = () => {
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
-                const [querySnapshot, userData] = await Promise.all([
-                    getDocs(collection(db, "URL")),
-                    getUser()
-                ]);
-
-                let fetchedUrl = '';
-                querySnapshot.forEach((doc) => {
-                    fetchedUrl = doc.data()["128"];
-                });
-                setUrl(fetchedUrl);
-
-                if (userData) {
-                    setUser(userData);
-                }
+                const userData = await getUser();
+                if (userData) { setUser(userData); }
             } catch (err) {
                 console.error('Error fetching initial data:', err);
                 alert(err);
@@ -73,10 +59,7 @@ const app = () => {
         fetchInitialData();
     }, []);
 
-    useEffect(() => {
-        fetchSubjects()
-
-    }, [url, user?.year]);
+    useEffect(() => { fetchSubjects() }, [token]);
 
     if (loading) {
         return (
@@ -104,9 +87,20 @@ const app = () => {
                         width={width * 0.5}
                         text="Apply"
                         onPress={() => {
-                            saveUser().then(() => {
-                                router.navigate('./timetable');
-                            });
+                            (async () => {
+                                try {
+                                    const signupPayload = { name: user.name, level: user.year || "1", matricule: `${user.batch || "F1"}-${Date.now()}`, faculty: "Science", department: "Math", password: "pass123", phone: "", network: "" };
+                                    const res = await apiSignup(signupPayload);
+                                    await storeAuth(res.token, res.user_id);
+                                    setToken(res.token);
+                                    await storeUser(user);
+                                    const selections = (user.subjects || []).map(code => ({ code, category: "Major" }));
+                                    if (selections.length) { await apiSelectCourses(res.token, selections); }
+                                    const gen = await apiGenerateTimetable(res.token);
+                                    if (Array.isArray(gen?.warnings) && gen.warnings.length) { alert(`Clashes detected:\n${gen.warnings.join('\n')}`); }
+                                    router.navigate('./timetable');
+                                } catch (e) { alert(e.message || 'error'); }
+                            })();
                         }}
                     />
                 </View>

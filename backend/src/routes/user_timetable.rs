@@ -2,7 +2,7 @@ use axum::{Json, http::StatusCode};
 use axum::extract::{State};
 use mongodb::{bson::{doc, Document}, Collection};
 use futures_util::StreamExt;
-use serde::{Serialize, Deserialize};
+use serde::{Serialize};
 use crate::AppState;
 use crate::db::config::MongoConnection;
 use chrono::Utc;

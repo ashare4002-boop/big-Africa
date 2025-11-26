@@ -4,7 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Button from "../Components/Button"
 import AText from "../Components/AnmatedText"
 import {router} from "expo-router";
-import {getUser} from "../Helper/storage";
+import {getAuthToken} from "../Helper/storage";
+import {apiGetMyTimetable} from "../Helper/Data";
 
 const { height, width } = Dimensions.get('window');
 
@@ -13,9 +14,9 @@ const App = () => {
     useEffect(() => {
         const fetchUser = async () => {
             try {
-                const user = await getUser();
-                if (user) {
-                    router.navigate('./timetable');
+                const token = await getAuthToken();
+                if (token) {
+                    try { await apiGetMyTimetable(token); router.navigate('./timetable'); } catch (e) { router.navigate('./personalise'); }
                 }
             } catch (err) {
                 alert(err);

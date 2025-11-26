@@ -1,9 +1,9 @@
 import {Text, View} from "react-native";
 import React, {useEffect, useState} from "react";
-import {formatTimetable, get_timetable} from "../Helper/Data";
+import {apiGetMyTimetable} from "../Helper/Data";
 import {collection, getDocs} from "firebase/firestore";
 import {db} from "../firebaseConfig";
-import {getUser} from "../Helper/storage";
+import {getUser, getAuthToken} from "../Helper/storage";
 import InfoBar from "../Components/InfoBar";
 import Loading from "../Components/Loading";
 import DaySelector from "../Components/DaySelector";
@@ -16,6 +16,7 @@ const App = ()=> {
     const [user, setUser] = useState(null);
     const [timetable, setTimetable] = useState(null);
     const [url, setUrl] = useState("");
+    const [token, setToken] = useState(null);
     const [day, setDay] = useState(new Date().getDay());
 
     const dayOptions = ["MON","TUES","WED","THUR","FRI","SAT"];
@@ -23,23 +24,10 @@ const App = ()=> {
     useEffect(() => {
         const initialfetch = async () => {
             try {
-                const [querySnapshot, userData] = await Promise.all([
-                    getDocs(collection(db, "URL")),
-                    getUser()
-                ]);
-
-                let fetchedUrl = '';
-                querySnapshot.forEach((doc) => {
-                    fetchedUrl = doc.data()["128"];
-                });
-                setUrl(fetchedUrl);
-
-                if (userData) {
-                    setUser(userData);
-                }
-                if (user && url) {
-                    await formatTimetable(url,user).then(timetable => setTimetable(timetable));
-                }
+                const userData = await getUser();
+                const tok = await getAuthToken();
+                if (userData) { setUser(userData); }
+                if (tok) { setToken(tok); }
             } catch (err) {
                 console.error('Error fetching initial data:', err);
                 alert(err);
@@ -53,15 +41,14 @@ const App = ()=> {
     useEffect(() => {
         const fetch = async () => {
             try {
-                if (user && url) {
-                    await formatTimetable(url,user).then(timetable => setTimetable(timetable));
+                if (token) {
+                    const tt = await apiGetMyTimetable(token);
+                    setTimetable(tt);
                 }
-            } catch (error) {
-                alert(error);
-            }
-        }
+            } catch (error) { alert(error.message || 'error'); }
+        };
         fetch();
-    }, [user, url])
+    }, [token])
 
     useEffect(() => {
         console.log(JSON.stringify(timetable));
@@ -81,9 +68,32 @@ const App = ()=> {
         <View>
             <InfoBar batch={user?.batch} year={user?.year} name={user?.name} />
             <DaySelector dayIdx = {day} setDayIdx = {setDay} />
-            <Schedule timetable={timetable[dayOptions[day]]} />
+            {Array.isArray(timetable?.days) ? (
+                <Schedule timetable={transformBackendTimetableForUI(timetable, day)} />
+            ) : null}
         </View>
     )
 }
+
+const transformBackendTimetableForUI = (tt, dayIdx) => {
+    const dayDoc = tt.days.find(d => d.day === dayIdx) || null;
+    const out = {};
+    if (!dayDoc) return out;
+    for (const col of (dayDoc.cols || [])) {
+        const hr = col.start_time?.hr || 0;
+        const min = col.start_time?.min || 0;
+        const endMin = min + (col.duration || 0);
+        const startStr = `${String(hr).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+        const endStr = `${String(hr).padStart(2,'0')}:${String(endMin%60).padStart(2,'0')}`;
+        const key = `${startStr} - ${endStr}`;
+        const slots = [];
+        for (const s of (col.schedules || [])) {
+            const c = s.course || {};
+            slots.push({ type: (s.slot_type && s.slot_type[0]) || 'L', name: c.name || c.code || '', code: c.code || '', room: s.room || '', teacher: Array.isArray(s.teacher) ? s.teacher.join('/') : (s.teacher || '') });
+        }
+        if (slots.length) { out[key] = slots; }
+    }
+    return out;
+};
 
 export default App;

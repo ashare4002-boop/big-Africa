@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Plus, Calendar, Clock, Copy, Check, Upload, Send } from 'lucide-react';
 import { Modals } from './Modals';
 import { DayCard } from './DayCard';
+import ServerConfig from "../Constants/Config.js";
+import { BASE_URL, apiFetch } from "../api/client.js";
 
 function TimetableForm() {
     // State for admin key
@@ -9,6 +11,12 @@ function TimetableForm() {
 
     // State for timetable
     const [timetableId, setTimetableId] = useState(1);
+    const [timetableType, setTimetableType] = useState('Regular');
+    const [activeFrom, setActiveFrom] = useState('');
+    const [activeUntil, setActiveUntil] = useState('');
+    const [faculty, setFaculty] = useState('');
+    const [department, setDepartment] = useState('');
+    const [level, setLevel] = useState('');
     const [days, setDays] = useState([]);
 
     // Available options
@@ -46,6 +54,8 @@ function TimetableForm() {
     const [copySuccess, setCopySuccess] = useState(false);
     const [jsonInput, setJsonInput] = useState('');
     const [loadError, setLoadError] = useState('');
+    const [parsedResult, setParsedResult] = useState(null);
+    const [uploading, setUploading] = useState(false);
 
     // Drag and drop states
     const [draggedSlot, setDraggedSlot] = useState(null);
@@ -241,8 +251,14 @@ function TimetableForm() {
         return {
             key: adminKey,
             timetable: {
-                id: timetableId,
-                days: days.sort((a, b) => a.day - b.day)
+                ver: new Date().toISOString(),
+                days: days.sort((a, b) => a.day - b.day),
+                kind: timetableType,
+                active_from: activeFrom || undefined,
+                active_until: activeUntil || undefined,
+                faculty: faculty || undefined,
+                department: department || undefined,
+                level: level || undefined,
             }
         };
     };
@@ -300,6 +316,31 @@ function TimetableForm() {
                         Load from JSON
                     </button>
                 </div>
+                <div className="mt-4 flex items-center justify-center gap-2">
+                    <input type="file" accept="application/pdf" onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setUploading(true);
+                        try {
+                            const fd = new FormData();
+                            fd.append('file', file);
+                            const res = await fetch(`${BASE_URL}/ai/parse`, { method: 'POST', body: fd });
+                            const data = await res.json();
+                            setParsedResult(data?.data || null);
+                        } catch (err) {
+                            setParsedResult(null);
+                        } finally {
+                            setUploading(false);
+                        }
+                    }} />
+                    {uploading ? <span className="text-sm text-gray-500">Uploading...</span> : null}
+                </div>
+                {parsedResult ? (
+                    <div className="mt-4 mx-auto max-w-3xl bg-white rounded-xl border p-4 text-left">
+                        <div className="text-sm text-gray-600">Parsed Preview</div>
+                        <pre className="text-xs overflow-x-auto">{JSON.stringify(parsedResult, null, 2)}</pre>
+                    </div>
+                ) : null}
             </div>
 
             {/* Admin Key and Timetable ID */}
@@ -325,6 +366,34 @@ function TimetableForm() {
                                 onChange={(e) => setTimetableId(parseInt(e.target.value))}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Timetable Type</label>
+                            <select value={timetableType} onChange={(e)=>setTimetableType(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option>Regular</option>
+                                <option>CA</option>
+                                <option>Exam</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Active From (ISO)</label>
+                            <input type="datetime-local" value={activeFrom} onChange={(e)=>setActiveFrom(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Active Until (ISO)</label>
+                            <input type="datetime-local" value={activeUntil} onChange={(e)=>setActiveUntil(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Faculty/School</label>
+                            <input type="text" value={faculty} onChange={(e)=>setFaculty(e.target.value)} placeholder="e.g., Science" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                            <input type="text" value={department} onChange={(e)=>setDepartment(e.target.value)} placeholder="e.g., Math" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Level</label>
+                            <input type="text" value={level} onChange={(e)=>setLevel(e.target.value)} placeholder="e.g., 300" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                         </div>
                     </div>
                 </div>
@@ -404,9 +473,18 @@ function TimetableForm() {
                 </button>
 
                 <button
-                    onClick={() => {
-                        console.log('Timetable JSON:', generateJSON());
-                        alert('Timetable logged to console!');
+                    onClick={async () => {
+                        const body = generateJSON();
+                        try {
+                            await apiFetch('/timetable', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(body)
+                            });
+                            alert('Timetable submitted');
+                        } catch (e) {
+                            alert('Error submitting timetable');
+                        }
                     }}
                     className="flex items-center px-8 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl hover:from-indigo-700 hover:to-indigo-800 transition-all transform hover:scale-105 shadow-lg"
                 >

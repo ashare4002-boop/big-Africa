@@ -193,4 +193,44 @@ async function get_timetable(url, year) {
 
 
 
-export { getSubjects ,formatTimetable};
+const API_BASE = 'http://localhost:3000';
+
+async function apiSignup(payload) {
+    const res = await fetch(`${API_BASE}/auth/signup`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!res.ok) { throw new Error(`signup failed ${res.status}`); }
+    return await res.json();
+}
+
+async function apiLogin(payload) {
+    const res = await fetch(`${API_BASE}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!res.ok) { throw new Error(`login failed ${res.status}`); }
+    return await res.json();
+}
+
+async function apiListCourses(token, search) {
+    const url = `${API_BASE}/courses${search ? `?search=${encodeURIComponent(search)}` : ''}`;
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) { throw new Error(`list courses failed ${res.status}`); }
+    return await res.json();
+}
+
+async function apiSelectCourses(token, selections) {
+    const res = await fetch(`${API_BASE}/courses/select`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ selections }) });
+    if (!res.ok) { throw new Error(`select courses failed ${res.status}`); }
+    return await res.json();
+}
+
+async function apiGenerateTimetable(token) {
+    const res = await fetch(`${API_BASE}/me/timetable/generate`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) { throw new Error(`generate timetable failed ${res.status}`); }
+    return await res.json();
+}
+
+async function apiGetMyTimetable(token) {
+    const res = await fetch(`${API_BASE}/me/timetable`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (res.status === 403) { const j = await res.json(); throw new Error(j?.redirect || 'forbidden'); }
+    if (!res.ok) { throw new Error(`get timetable failed ${res.status}`); }
+    return await res.json();
+}
+
+export { getSubjects ,formatTimetable, apiSignup, apiLogin, apiListCourses, apiSelectCourses, apiGenerateTimetable, apiGetMyTimetable };
