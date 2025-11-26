@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
-use crate::models::wrapper::{Column, ColumnRes, DayRes, TimeTable};
+use crate::models::wrapper::{ColumnRes, DayRes, TimeTable};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Subject {

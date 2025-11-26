@@ -1,14 +1,16 @@
 use std::env;
 use mongodb::{
     bson::{doc, Document},
-    options::{ClientOptions, ServerApi, ServerApiVersion,FindOptions},
+    options::{ClientOptions, ServerApi, ServerApiVersion},
     Client, Database, Collection,
 };
 use tokio;
 use dotenv::dotenv;
 use anyhow::{Result, Context, anyhow};
 use crate::models::meta_data::TimeTableMetaData;
-use crate::models::wrapper::{MetaData, Res, TimeTable};
+use crate::models::wrapper::{MetaData, TimeTable};
+use crate::models::wrapper::Notification;
+use futures_util::TryStreamExt;
 
 #[derive(Debug)]
 pub struct MongoConnection {
@@ -87,12 +89,25 @@ impl MongoConnection {
 
     pub async fn get_timetable(&self, db_name: &str) -> Result<TimeTable> {
         let collection: Collection<TimeTable> = self.collection(db_name, "timetables");
-        let count = collection.estimated_document_count().await?;
-        let latest_meta = collection.find_one(doc! { "version": count as i32 }).await?;
-        match latest_meta {
-            Some(meta) => Ok(meta),
-            None => Err(anyhow!("No meta data found")),
+        let mut cursor = collection.find(doc! {}).await?;
+        let mut all: Vec<TimeTable> = Vec::new();
+        while let Some(doc) = cursor.try_next().await? { all.push(doc); }
+        if all.is_empty() { return Err(anyhow!("No timetables found")); }
+        // Prefer active timetables by kind precedence: Exam > CA > Regular
+        let now_ms = chrono::Utc::now().timestamp_millis();
+        let mut active: Vec<&TimeTable> = all.iter().filter(|t| {
+            let af = t.active_from.as_ref().map(|d| d.timestamp_millis()).unwrap_or(i64::MIN);
+            let au = t.active_until.as_ref().map(|d| d.timestamp_millis()).unwrap_or(i64::MAX);
+            af <= now_ms && now_ms <= au
+        }).collect();
+        if !active.is_empty() {
+            active.sort_by_key(|t| {
+                match t.kind.as_deref() { Some("Exam") => 0, Some("CA") => 1, _ => 2 }
+            });
+            return Ok((*active[0]).clone());
         }
+        // Fallback: return last inserted
+        Ok(all.last().unwrap().clone())
     }
 
     pub async fn add_meta_data(&self, db_name: &str, meta_data_res: TimeTableMetaData) -> Result<()> {
@@ -118,9 +133,42 @@ impl MongoConnection {
 
         Ok(())
     }
-    pub async fn add_time_table(&self, db_name: &str, mut res: TimeTable) -> Result<()> {
+    pub async fn add_time_table(&self, db_name: &str, res: TimeTable) -> Result<()> {
         let collection: Collection<TimeTable> = self.collection(db_name, "timetables");
         collection.insert_one(&res).await.context("Failed to insert time table")?;
+        // Generate course-level notification schedules for clients
+        self.generate_notifications_for_timetable(db_name, &res).await?;
+        Ok(())
+    }
+
+    pub async fn generate_notifications_for_timetable(&self, db_name: &str, timetable: &TimeTable) -> Result<()> {
+        let notifications: Collection<Notification> = self.collection(db_name, "notifications");
+        let mut batch_docs: Vec<Notification> = Vec::new();
+        for day in &timetable.days {
+            for col in &day.cols {
+                let hr = col.start_time.hr;
+                let min = col.start_time.min;
+                for slot in &col.schedules {
+                    if let Some(course) = &slot.course {
+                        let notif = Notification {
+                            kind: "course_schedule".to_string(),
+                            course_code: Some(course.code.clone()),
+                            user_id: None,
+                            day: Some(day.day),
+                            start_hr: Some(hr),
+                            start_min: Some(min),
+                            offsets_min: Some(vec![60, 30, 5]),
+                            message: Some(format!("{} scheduled", course.code)),
+                            created_at: Some(mongodb::bson::DateTime::now()),
+                        };
+                        batch_docs.push(notif);
+                    }
+                }
+            }
+        }
+        if !batch_docs.is_empty() {
+            notifications.insert_many(batch_docs).await?;
+        }
         Ok(())
     }
 }
@@ -134,6 +182,7 @@ pub async fn create_database(client: &Client, db_name: &str) -> Result<()> {
         "users",
         "timetables",
         "meta_data",
+        "notifications",
     ];
 
     println!("Creating database '{}' with collections...", db_name);

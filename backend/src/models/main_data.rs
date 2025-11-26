@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde::__private::de::IdentifierDeserializer;
 use crate::models::meta_data::{Subject, Teacher, TimeTableMetaData};
 
 ///Base structs for actual timetable

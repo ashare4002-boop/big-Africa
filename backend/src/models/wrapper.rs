@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+
 use std::io::ErrorKind;
 use serde::{Deserialize, Serialize};
 use crate::models::main_data::{Slot,SlotRes};
@@ -158,8 +158,28 @@ impl DayRes{
 
 #[derive(Serialize,Deserialize,Debug,Default, Clone)]
 pub struct TimeTable{
-    year:u8,
-    days:Vec<Day>,
+    pub ver:String,
+    pub days:Vec<Day>,
+    pub raw_llm_response: Option<String>,
+    pub kind: Option<String>,
+    pub active_from: Option<mongodb::bson::DateTime>,
+    pub active_until: Option<mongodb::bson::DateTime>,
+    pub faculty: Option<String>,
+    pub department: Option<String>,
+    pub level: Option<String>,
+}
+
+#[derive(Serialize,Deserialize,Debug,Default, Clone)]
+pub struct Notification {
+    pub kind: String,
+    pub course_code: Option<String>,
+    pub user_id: Option<String>,
+    pub day: Option<u8>,
+    pub start_hr: Option<u8>,
+    pub start_min: Option<u8>,
+    pub offsets_min: Option<Vec<i32>>, // e.g., [60,30,5]
+    pub message: Option<String>,
+    pub created_at: Option<mongodb::bson::DateTime>,
 }
 
 #[derive(Serialize,Deserialize,Debug,Default, Clone)]
@@ -174,8 +194,14 @@ impl Collection{
 
 #[derive(Serialize,Deserialize,Debug,Default, Clone)]
 pub struct TimeTableRes{
-    ver:u8,
+    ver:String,
     days:Vec<DayRes>,
+    kind: Option<String>,
+    active_from: Option<String>,
+    active_until: Option<String>,
+    faculty: Option<String>,
+    department: Option<String>,
+    level: Option<String>,
 }
 impl TimeTableRes{
     pub fn transform(&self, meta_data:&TimeTableMetaData) -> TimeTable{
@@ -183,9 +209,22 @@ impl TimeTableRes{
         for i in &self.days {
             new_slots.push(i.transform(meta_data));
         }
+        let af = self.active_from.as_ref().and_then(|s| {
+            chrono::DateTime::parse_from_rfc3339(s).ok().map(|dt| mongodb::bson::DateTime::from_millis(dt.timestamp_millis()))
+        });
+        let au = self.active_until.as_ref().and_then(|s| {
+            chrono::DateTime::parse_from_rfc3339(s).ok().map(|dt| mongodb::bson::DateTime::from_millis(dt.timestamp_millis()))
+        });
         TimeTable{
-            year: self.ver,
+            ver: self.ver.clone(),
             days: new_slots,
+            raw_llm_response: None,
+            kind: self.kind.clone(),
+            active_from: af,
+            active_until: au,
+            faculty: self.faculty.clone(),
+            department: self.department.clone(),
+            level: self.level.clone(),
         }
     }
 }
@@ -212,7 +251,8 @@ pub struct Res {
 
 impl Res {
     pub fn transform(&self, meta_data: &TimeTableMetaData) -> Result<TimeTable, BcryptError> {
-        let stored_hash = "$2b$12$p6iy1Fciwj.IasMAVBEhOODdgfoQZx3vFsiP2m8Uql.sA9Cc9/e9W";
+        let env_hash = std::env::var("ADMIN_KEY_HASH").ok();
+        let stored_hash = env_hash.as_deref().unwrap_or("$2b$12$p6iy1Fciwj.IasMAVBEhOODdgfoQZx3vFsiP2m8Uql.sA9Cc9/e9W");
 
         if verify(&self.key, &stored_hash)? {
             if let Some(timetable) = &self.timetable {
