@@ -24,13 +24,7 @@ export default function VerifyRequest() {
           otp: otp,
           fetchOptions: {
             onSuccess: async () => {
-                toast.success("Email verified! Starting your 7-day free trial...");
-                // Initialize trial for new user
-                try {
-                  await fetch("/api/auth/init-trial", { method: "POST" });
-                } catch (error) {
-                  console.error("Trial initialization failed silently, continuing...");
-                }
+                toast.success("Email verified! Welcome to A-Share.");
                 router.push("/");
             },
             onError: () => {

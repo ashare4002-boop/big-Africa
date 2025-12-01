@@ -23,7 +23,7 @@ async function authMiddleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/auth|api/webhook/nkwa).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api).*)",
   ],
   runtime: "nodejs", // ← FIX: force Node runtime to allow better-auth
 };
@@ -31,6 +31,10 @@ export const config = {
 export default createMiddleware(aj, async (request: NextRequest) => {
   if (request.nextUrl.pathname.startsWith("/admin")) {
     return authMiddleware(request);
+  }
+
+   if (request.nextUrl.pathname.includes("/api/webhook/")) {
+    return NextResponse.next();
   }
 
   return NextResponse.next();

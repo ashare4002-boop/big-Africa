@@ -29,8 +29,8 @@ export function LoginForm() {
         provider: "google",
         callbackURL: "/",
         fetchOptions: {
-          onSuccess: () => {
-            toast.success("Signed in successfully! Redirecting...");
+          onSuccess: async () => {
+            toast.success("Welcome! Your 7-day trial starts now.");
           },
           onError: (error) => {
             if (!navigator.onLine) {

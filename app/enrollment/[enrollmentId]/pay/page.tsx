@@ -124,8 +124,15 @@ export default function EnrollmentPaymentPage({ params }: { params: Params }) {
             )}
 
             {error && (
-              <Button onClick={initializePayment} variant="outline" className="w-full">
-                Retry
+              <Button onClick={initializePayment} variant="outline" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Retrying...
+                  </>
+                ) : (
+                  "Retry"
+                )}
               </Button>
             )}
 

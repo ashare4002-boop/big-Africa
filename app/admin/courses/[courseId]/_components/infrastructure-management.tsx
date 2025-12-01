@@ -26,7 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, MapPin, Edit2, Trash2 } from "lucide-react";
+import { Plus, MapPin, Edit2, Trash2, Loader2 } from "lucide-react";
 import { InfrastructureForm } from "./infrastructure-form";
 import { TownForm } from "./town-form";
 import { deleteInfrastructure } from "../actions/infrastructure-actions";
@@ -311,7 +311,14 @@ export function InfrastructureManagement({
                           disabled={isDeleting}
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                          {isDeleting ? "Deleting..." : "Delete"}
+                          {isDeleting ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Deleting...
+                            </>
+                          ) : (
+                            "Delete"
+                          )}
                         </AlertDialogAction>
                       </div>
                     </AlertDialogContent>

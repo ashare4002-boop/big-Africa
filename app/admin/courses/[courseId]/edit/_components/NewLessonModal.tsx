@@ -20,7 +20,7 @@ import { tryCatch } from "@/hooks/try-catch";
 import { lessonSchema, LessonSchemaType } from "@/lib/zodSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { DialogTrigger } from "@radix-ui/react-dialog";
-import { Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { createLesson } from "../action";
@@ -105,7 +105,14 @@ export function NewLessonModal({
             />
             <DialogFooter>
               <Button disabled={pending} type="submit">
-                {pending ? "Saving..." : "Save"}
+                {pending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save"
+                )}
               </Button>
             </DialogFooter>
           </form>

@@ -6,13 +6,13 @@ import {
   IconDashboard,
   IconFileAi,
   IconFileDescription,
-  IconHelp,
   IconSearch,
   IconSettings,
   IconBook,
   IconBadge,
-  IconWorld,
+
 } from "@tabler/icons-react";
+
 import { NavMain } from "@/components/sidebar/nav-main";
 import { NavSecondary } from "@/components/sidebar/nav-secondary";
 import { NavUser } from "@/components/sidebar/nav-user";
@@ -31,26 +31,22 @@ const data = {
   navMain: [
     {
       title: "Dashboard",
-      url: "/admin",
+      url: "/dashboard",
       icon: IconDashboard,
     },
-    {
-      title: "Courses",
-      url: "/admin/courses",
-      icon: IconBook,
-    },
-
+    
     {
       title: "Exams",
-      url: "/admin/exams",
+      url: "/exams",
       icon: IconBook, // <---- icon need to be change
     },
 
     {
       title: "Jobs",
-      url: "/admin/jobs",
+      url: "/jobs",
       icon: IconBadge, // <---- Change this Icon
     },
+
   ],
   navClouds: [
     {
@@ -106,13 +102,15 @@ const data = {
       url: "#",
       icon: IconSettings,
     },
-
+   
     {
       title: "Search",
       url: "#",
       icon: IconSearch,
     },
   ],
+
+  
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -131,7 +129,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-      </SidebarHeader>
+      </SidebarHeader> 
       <SidebarContent>
         <NavMain items={data.navMain} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />

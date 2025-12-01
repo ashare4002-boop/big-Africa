@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { authClient } from "@/lib/auth-client";
 
 interface Notification {
   id: string;
@@ -16,17 +17,22 @@ interface Notification {
 }
 
 export function SubscriptionWarningNotification() {
+  const { data: session } = authClient.useSession();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadNotifications();
-  }, []);
+    if (session?.user) {
+      loadNotifications();
+    } else {
+      setLoading(false);
+    }
+  }, [session]);
 
   const loadNotifications = async () => {
     try {
       // OPTIMIZATION: Filter on backend, not client-side
-      const response = await fetch("/api/notifications/get?type=SUBSCRIPTION_WARNING");
+      const response = await fetch("/api/notification/get?type=SUBSCRIPTION_WARNING");
       if (response.ok) {
         const data = await response.json();
         // Backend already filters by type and read status
@@ -41,7 +47,7 @@ export function SubscriptionWarningNotification() {
 
   const handleDismiss = async (notificationId: string) => {
     try {
-      await fetch("/api/notifications/mark-read", {
+      await fetch("/api/notification/mark-read", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notificationId }),

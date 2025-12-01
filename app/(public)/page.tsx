@@ -6,6 +6,8 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, BookOpen, Users, Target, Zap, Award, Globe, CheckCircle2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { authClient } from "@/lib/auth-client";
+import { useRef } from "react";
 
 interface featureProps {
   title: string;
@@ -79,6 +81,26 @@ const FadeInOnScroll = ({ children, delay = 0 }: { children: React.ReactNode; de
 };
 
 export default function Home() {
+  const { data: session } = authClient.useSession();
+  const trialInitRef = useRef(false);
+  
+  // Initialize trial for new users after they login
+  useEffect(() => {
+    if (session?.user && !trialInitRef.current) {
+      trialInitRef.current = true;
+      fetch("/api/auth/init-trial", { 
+        method: "POST",
+        credentials: "include",
+      }).catch(() => {
+        // Silent fail
+      });
+    }
+  }, [session?.user]);
+  
+  // Redirect unauthenticated users to trial landing for course access
+  const coursesHref = session ? "/courses" : "/trial-landing";
+  const signupHref = "/trial-landing";
+  
   return (
     <>
       <style>{`
@@ -151,7 +173,7 @@ export default function Home() {
                 className={`${buttonVariants({
                   size: "lg",
                 })} button-hover group`}
-                href="/courses"
+                href={coursesHref}
               >
                 Explore Courses
                 <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -162,7 +184,7 @@ export default function Home() {
                   size: "lg",
                   variant: "outline",
                 })} button-hover`}
-                href="/login"
+                href={signupHref}
               >
                 Sign In
               </Link>
@@ -299,7 +321,7 @@ export default function Home() {
                     size: "lg",
                     variant: "secondary",
                   })} button-hover`}
-                  href="/courses"
+                  href={coursesHref}
                 >
                   Explore Courses
                 </Link>
@@ -308,7 +330,7 @@ export default function Home() {
                     size: "lg",
                     variant: "outline",
                   })} button-hover text-primary-foreground border-primary-foreground hover:bg-primary-foreground/10`}
-                  href="/login"
+                  href={signupHref}
                 >
                   Create Account
                 </Link>

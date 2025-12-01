@@ -56,12 +56,12 @@ export function Navbar() {
             ) : ( 
               <>
                 <Link
-                  href="/login"
+                  href="/trial-landing"
                   className={buttonVariants({ variant: "secondary" })}
                 >
                   Log in
                 </Link>
-                <Link href="/login" className={buttonVariants()}>
+                <Link href="/trial-landing" className={buttonVariants()}>
                   Get started
                 </Link>
               </>

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { prisma } from "@/lib/db";
 import logger from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
@@ -10,7 +9,7 @@ export async function POST(request: NextRequest) {
       headers: await headers(),
     });
 
-    if (!session) {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -23,20 +22,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await (prisma as any).notification.updateMany({
-      where: {
-        id: notificationId,
-        userId: session.user.id,
-      },
-      data: { read: true },
-    });
-
-    logger.info({ notificationId }, "Notification marked as read");
+    // Notifications are generated dynamically, so just return success
+    // In the future, we can store dismissal state in a separate Dismissal model if needed
+    logger.info({ notificationId, userId: session.user.id }, "Notification dismissed");
     return NextResponse.json({ success: true });
   } catch (error) {
-    logger.error({ err: error }, "Failed to update notification");
+    logger.error({ err: error }, "Failed to dismiss notification");
     return NextResponse.json(
-      { error: "Failed to update notification" },
+      { error: "Failed to dismiss notification" },
       { status: 500 }
     );
   }

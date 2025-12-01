@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { env } from "./env";
 import logger from "./logger";
 import * as notif from "./notifications"; 
 
@@ -237,7 +238,7 @@ export async function sendPaymentWarnings(): Promise<void> {
         (enrollment.nextPaymentDue!.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
       );
 
-      const paymentLink = `${process.env.NEXT_PUBLIC_BASE_URL}/enrollment/${enrollment.id}/pay`;
+      const paymentLink = `${env.NEXT_PUBLIC_BASE_URL}/enrollment/${enrollment.id}/pay`;
 
       // Use data we already fetched (no redundant database queries!)
       const courseName = enrollment.Course?.title || "Course";

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Users, Calendar, Phone, AlertCircle } from "lucide-react";
+import { MapPin, Calendar,  AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { enrollInInfrastructureBaseCourse } from "@/app/admin/courses/[courseId]/actions/student-enrollment-actions";
 
@@ -111,7 +111,16 @@ export function InfrastructureEnrollmentCard({
           className="w-full"
           size="lg"
         >
-          {isLoading ? "Processing..." : isLocked ? "Not Available" : "Enroll Now"}
+          {isLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Processing...
+            </>
+          ) : isLocked ? (
+            "Not Available"
+          ) : (
+            "Enroll Now"
+          )}
         </Button>
       </CardContent>
     </Card>

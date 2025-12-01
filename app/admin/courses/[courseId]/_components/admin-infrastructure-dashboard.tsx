@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, DollarSign, Unlock, Lock } from "lucide-react";
+import { AlertCircle, DollarSign, Unlock, Lock, Loader2 } from "lucide-react";
 import { getInfrastructureAnalytics } from "../actions/enrollment-actions";
 import { unlockUserForReEnrollment, blockUserForReEnrollment } from "../actions/enrollment-actions";
 import { toast } from "sonner";
@@ -34,6 +34,8 @@ interface AnalyticsItem {
 export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDashboardProps) {
   const [analytics, setAnalytics] = useState<AnalyticsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [actionType, setActionType] = useState<"block" | "unlock" | null>(null);
 
   const loadAnalytics = async () => {
     const result = await getInfrastructureAnalytics(courseId);
@@ -51,6 +53,8 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
   }, [courseId, loadAnalytics]);
 
   const handleUnlockUser = async (enrollmentId: string) => {
+    setActionLoadingId(enrollmentId);
+    setActionType("unlock");
     const result = await unlockUserForReEnrollment(enrollmentId);
     if (result.status === "success") {
       toast.success("User unlocked for re-enrollment");
@@ -58,9 +62,13 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
     } else {
       toast.error(result.message);
     }
+    setActionLoadingId(null);
+    setActionType(null);
   };
 
   const handleBlockUser = async (enrollmentId: string) => {
+    setActionLoadingId(enrollmentId);
+    setActionType("block");
     const result = await blockUserForReEnrollment(enrollmentId);
     if (result.status === "success") {
       toast.success("User blocked from re-enrollment");
@@ -68,6 +76,8 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
     } else {
       toast.error(result.message);
     }
+    setActionLoadingId(null);
+    setActionType(null);
   };
 
   if (loading) {
@@ -192,9 +202,19 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
                             size="sm" 
                             variant="outline"
                             onClick={() => handleBlockUser(student.enrollmentId)}
+                            disabled={actionLoadingId === student.enrollmentId && actionType === "block"}
                           >
-                            <Lock className="w-4 h-4 mr-2" />
-                            Block Re-Enroll
+                            {actionLoadingId === student.enrollmentId && actionType === "block" ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Blocking...
+                              </>
+                            ) : (
+                              <>
+                                <Lock className="w-4 h-4 mr-2" />
+                                Block Re-Enroll
+                              </>
+                            )}
                           </Button>
                         </div>
                       ))}
@@ -232,9 +252,19 @@ export function AdminInfrastructureDashboard({ courseId }: AdminInfrastructureDa
                             size="sm" 
                             variant="outline"
                             onClick={() => handleUnlockUser(student.id)}
+                            disabled={actionLoadingId === student.id && actionType === "unlock"}
                           >
-                            <Unlock className="w-4 h-4 mr-2" />
-                            Allow Re-Enroll
+                            {actionLoadingId === student.id && actionType === "unlock" ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Allowing...
+                              </>
+                            ) : (
+                              <>
+                                <Unlock className="w-4 h-4 mr-2" />
+                                Allow Re-Enroll
+                              </>
+                            )}
                           </Button>
                         </div>
                       ))}
